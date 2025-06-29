@@ -12,14 +12,22 @@ export type EventCategory = typeof EVENT_CATEGORIES[number]
 export const eventSchemaZod = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters').max(100),
   description: z.string().min(10, 'Description must be at least 10 characters'),
+  about: z.string().optional(),
   location: z.string().min(3, 'Location must be at least 3 characters'),
-  date: z.date(),
+  date: z.string(),
   time: z.string(),
   duration: z.string(),
   ageLimit: z.string(),
   category: z.enum(EVENT_CATEGORIES),
-  imageUrl: z.string().url('Invalid image URL'),
-  status: z.enum(['draft', 'published']).default('draft'),
+  image: z.string().url('Invalid image URL'),
+  status: z.enum(['active', 'upcoming', 'completed', 'cancelled']).default('active'),
+  tickets: z.array(z.object({
+    name: z.enum(['Bronze', 'Silver', 'Gold']),
+    description: z.string(),
+    price: z.number().min(0),
+    available: z.number().min(0),
+    tags: z.array(z.string()).default([])
+  })).default([]),
   isHot: z.boolean().default(false),
   isPopular: z.boolean().default(false),
   attendees: z.number().default(0)
@@ -28,14 +36,22 @@ export const eventSchemaZod = z.object({
 export interface IEvent extends Document {
   title: string
   description: string
+  about?: string
   location: string
   category: EventCategory
-  date: Date
+  date: string
   time: string
   duration: string
   ageLimit: string
-  imageUrl: string
-  status: 'draft' | 'published'
+  image: string
+  status: 'active' | 'upcoming' | 'completed' | 'cancelled'
+  tickets: Array<{
+    name: 'Bronze' | 'Silver' | 'Gold'
+    description: string
+    price: number
+    available: number
+    tags: string[]
+  }>
   isHot: boolean
   isPopular: boolean
   attendees: number
@@ -57,6 +73,9 @@ const eventSchema = new Schema<IEvent>({
     type: String,
     required: true
   },
+  about: {
+    type: String
+  },
   location: {
     type: String,
     required: true,
@@ -68,7 +87,7 @@ const eventSchema = new Schema<IEvent>({
     required: true
   },
   date: {
-    type: Date,
+    type: String,
     required: true
   },
   time: {
@@ -83,15 +102,40 @@ const eventSchema = new Schema<IEvent>({
     type: String,
     required: true
   },
-  imageUrl: {
+  image: {
     type: String,
     required: true
   },
   status: {
     type: String,
-    enum: ['draft', 'published'],
-    default: 'draft'
+    enum: ['active', 'upcoming', 'completed', 'cancelled'],
+    default: 'active'
   },
+  tickets: [{
+    name: {
+      type: String,
+      enum: ['Bronze', 'Silver', 'Gold'],
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    available: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    tags: {
+      type: [String],
+      default: []
+    }
+  }],
   isHot: {
     type: Boolean,
     default: false
