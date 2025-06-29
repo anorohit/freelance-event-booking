@@ -31,7 +31,10 @@ import {
 import { MobileSearch } from "@/components/mobile-search"
 import { EnhancedHorizontalCarousel } from "@/components/enhanced-horizontal-carousel"
 import { OptimizedAccountModal } from "@/components/optimized-account-modal"
+import { GoogleLoginModal } from "@/components/google-login-modal"
+import { PhoneNumberModal } from "@/components/phone-number-modal"
 import { PullToRefresh } from "@/components/pull-to-refresh"
+import { LocationDetector } from "@/components/location-detector"
 
 const cities = [
   { value: "mumbai", label: "Mumbai" },
@@ -326,9 +329,20 @@ const mockTransactions = [
 
 export default function HomePage() {
   const [selectedCity, setSelectedCity] = useState("mumbai")
+  const [currentLocation, setCurrentLocation] = useState({
+    id: "mumbai",
+    name: "Mumbai",
+    state: "Maharashtra",
+    country: "India"
+  })
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showAccountModal, setShowAccountModal] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showPhoneModal, setShowPhoneModal] = useState(false)
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isNewUser, setIsNewUser] = useState(false)
 
   const cityEvents = events[selectedCity as keyof typeof events] || []
   const shouldShowPopularEvents = cityEvents.length === 0
@@ -360,6 +374,47 @@ export default function HomePage() {
     // Simulate API call to refresh events
     await new Promise((resolve) => setTimeout(resolve, 1500))
     console.log("Events refreshed")
+  }
+
+  const handleAccountClick = () => {
+    if (isLoggedIn) {
+      setShowAccountModal(true)
+    } else {
+      setShowLoginModal(true)
+    }
+  }
+
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true)
+    setShowLoginModal(false)
+    // Simulate checking if user is new (in real app, this would come from your backend)
+    const isNew = Math.random() > 0.5 // 50% chance of being new user for demo
+    setIsNewUser(isNew)
+    if (isNew) {
+      setShowPhoneModal(true)
+    }
+  }
+
+  const handlePhoneSubmit = (phone: string) => {
+    // Here you would typically save the phone number to your backend
+    console.log("Phone number saved:", phone)
+    setShowPhoneModal(false)
+    setIsNewUser(false)
+  }
+
+  const handlePhoneSkip = () => {
+    setShowPhoneModal(false)
+    setIsNewUser(false)
+  }
+
+  const handleLogout = () => {
+    setIsLoggedIn(false)
+    setShowAccountModal(false)
+  }
+
+  const handleLocationSelect = (location: any) => {
+    setCurrentLocation(location)
+    setSelectedCity(location.id)
   }
 
   const EventCard = ({ event, showBadge = false }: { event: any; showBadge?: boolean }) => (
@@ -461,33 +516,26 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Select value={selectedCity} onValueChange={setSelectedCity}>
-                <SelectTrigger className="w-32 sm:w-40 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-gray-300/50 dark:border-gray-600/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-gray-200/50 dark:border-gray-600/50">
-                  {cities.map((city) => (
-                    <SelectItem
-                      key={city.value}
-                      value={city.value}
-                      className="dark:text-white dark:focus:bg-slate-700/50"
-                    >
-                      {city.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Button
+                onClick={() => setShowLocationModal(true)}
+                variant="outline"
+                size="sm"
+                className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-gray-300/50 dark:border-gray-600/50 hover:bg-white/80 dark:hover:bg-slate-700/80"
+              >
+                <MapPin className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{currentLocation.name}</span>
+              </Button>
 
               <ThemeToggle />
 
               <Button
-                onClick={() => setShowAccountModal(true)}
+                onClick={handleAccountClick}
                 variant="outline"
                 size="sm"
                 className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-gray-300/50 dark:border-gray-600/50 hover:bg-white/80 dark:hover:bg-slate-700/80"
               >
                 <User className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Account</span>
+                <span className="hidden sm:inline">{isLoggedIn ? "Account" : "Login"}</span>
               </Button>
             </div>
           </div>
@@ -512,7 +560,7 @@ export default function HomePage() {
               Immerse yourself in unforgettable experiences. From world-class concerts to intimate workshops, discover
               premium events curated just for you in{" "}
               <span className="font-semibold text-blue-600 dark:text-blue-400">
-                {cities.find((c) => c.value === selectedCity)?.label}
+                {currentLocation.name}
               </span>
             </p>
 
@@ -638,7 +686,7 @@ export default function HomePage() {
                 {filteredEvents.length > 4 ? (
                   <EnhancedHorizontalCarousel
                     events={filteredEvents}
-                    title={`Events in ${cities.find((c) => c.value === selectedCity)?.label}`}
+                    title={`Events in ${currentLocation.name}`}
                     subtitle="Discover what's happening in your city"
                     badgeText={`${filteredEvents.length} Events`}
                     badgeColor="from-green-500 to-emerald-500"
@@ -649,7 +697,7 @@ export default function HomePage() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
                       <div>
                         <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                          Events in {cities.find((c) => c.value === selectedCity)?.label}
+                          Events in {currentLocation.name}
                         </h2>
                         <p className="text-gray-600 dark:text-gray-300">Discover what's happening in your city</p>
                       </div>
@@ -722,11 +770,34 @@ export default function HomePage() {
         </main>
       </PullToRefresh>
 
+      {/* Location Detector Modal */}
+      <LocationDetector
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationSelect={handleLocationSelect}
+        currentLocation={currentLocation}
+      />
+
+      {/* Google Login Modal */}
+      <GoogleLoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Phone Number Modal */}
+      <PhoneNumberModal
+        isOpen={showPhoneModal}
+        onClose={handlePhoneSkip}
+        onPhoneSubmit={handlePhoneSubmit}
+      />
+
       {/* Optimized Account Modal */}
       <OptimizedAccountModal
         isOpen={showAccountModal}
         onClose={() => setShowAccountModal(false)}
         transactions={mockTransactions}
+        onLogout={handleLogout}
       />
     </div>
   )

@@ -21,9 +21,10 @@ interface OptimizedAccountModalProps {
   isOpen: boolean
   onClose: () => void
   transactions: Transaction[]
+  onLogout: () => void
 }
 
-export function OptimizedAccountModal({ isOpen, onClose, transactions }: OptimizedAccountModalProps) {
+export function OptimizedAccountModal({ isOpen, onClose, transactions, onLogout }: OptimizedAccountModalProps) {
   if (!isOpen) return null
 
   return (
@@ -193,7 +194,11 @@ export function OptimizedAccountModal({ isOpen, onClose, transactions }: Optimiz
                   <Button variant="outline" className="w-full">
                     Download All Tickets
                   </Button>
-                  <Button variant="outline" className="w-full text-red-600 hover:text-red-700 hover:border-red-300">
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-red-600 hover:text-red-700 hover:border-red-300"
+                    onClick={onLogout}
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Sign Out
                   </Button>

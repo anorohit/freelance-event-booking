@@ -11,32 +11,36 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ThemeToggle } from "@/components/theme-toggle"
-import {
+import { 
+  Activity, 
   ArrowLeft,
-  Calendar,
-  Settings,
-  Eye,
-  EyeOff,
-  Plus,
+  Calendar, 
+  Clock, 
+  DollarSign, 
   Edit,
-  Trash2,
-  Search,
+  Eye, 
+  EyeOff, 
   Filter,
-  PieChart,
-  Activity,
-  DollarSign,
-  Ticket,
-  MapPin,
-  Clock,
-  Star,
-  Flame,
-  Shield,
+  Flame, 
+  Globe, 
   LogOut,
+  MapPin, 
+  PieChart,
+  Plus, 
+  Search, 
+  Settings, 
+  Shield,
+  Star, 
+  Ticket,
+  Trash2, 
+  Users, 
+  X 
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
+import { LocationMap } from "@/components/location-map"
 
 interface Ticket {
   name: string
@@ -61,6 +65,14 @@ interface EventForm {
   tickets: Ticket[]
   category: string
   image: string
+}
+
+interface PopularCity {
+  id: string
+  name: string
+  state: string
+  country: string
+  coordinates?: { lat: number; lng: number }
 }
 
 export default function AdminDashboard() {
@@ -176,6 +188,36 @@ export default function AdminDashboard() {
 
   const [selectedEvent, setSelectedEvent] = useState<typeof events[number] | null>(null)
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false)
+
+  // Popular Cities Management
+  const [popularCities, setPopularCities] = useState<PopularCity[]>([
+    { id: "mumbai", name: "Mumbai", state: "Maharashtra", country: "India", coordinates: { lat: 19.0760, lng: 72.8777 } },
+    { id: "delhi", name: "Delhi", state: "Delhi", country: "India", coordinates: { lat: 28.7041, lng: 77.1025 } },
+    { id: "bangalore", name: "Bangalore", state: "Karnataka", country: "India", coordinates: { lat: 12.9716, lng: 77.5946 } },
+    { id: "chennai", name: "Chennai", state: "Tamil Nadu", country: "India", coordinates: { lat: 13.0827, lng: 80.2707 } },
+    { id: "kolkata", name: "Kolkata", state: "West Bengal", country: "India", coordinates: { lat: 22.5726, lng: 88.3639 } },
+    { id: "hyderabad", name: "Hyderabad", state: "Telangana", country: "India", coordinates: { lat: 17.3850, lng: 78.4867 } },
+    { id: "pune", name: "Pune", state: "Maharashtra", country: "India", coordinates: { lat: 18.5204, lng: 73.8567 } },
+    { id: "ahmedabad", name: "Ahmedabad", state: "Gujarat", country: "India", coordinates: { lat: 23.0225, lng: 72.5714 } },
+  ])
+  const [cityModalOpen, setCityModalOpen] = useState(false)
+  const [mapModalOpen, setMapModalOpen] = useState(false)
+  const [credentialsModalOpen, setCredentialsModalOpen] = useState(false)
+  const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false)
+
+  // Credentials form state
+  const [credentialsForm, setCredentialsForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
+
+  // Forgot password form state
+  const [forgotPasswordForm, setForgotPasswordForm] = useState({
+    email: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
 
   const router = useRouter()
 
@@ -349,6 +391,198 @@ export default function AdminDashboard() {
         percentage: totalTickets > 0 ? ((ticket.available / totalTickets) * 100).toFixed(1) : '0'
       }))
     }
+  }
+
+  // Popular Cities Handlers
+  const openMapModal = () => {
+    setMapModalOpen(true)
+  }
+
+  const closeMapModal = () => {
+    setMapModalOpen(false)
+  }
+
+  const closeCityModal = () => {
+    setCityModalOpen(false)
+  }
+
+  const addCityFromMap = (cityName: string, state: string, lat: number, lng: number) => {
+    const newCity = {
+      id: cityName.toLowerCase().replace(/\s+/g, '-'),
+      name: cityName,
+      state: state,
+      country: "India",
+      coordinates: { lat, lng }
+    }
+    
+    // Check if city already exists
+    if (popularCities.find(c => c.id === newCity.id)) {
+      toast({
+        title: "City Already Exists",
+        description: `${cityName} is already in the popular cities list.`,
+        variant: "destructive",
+      })
+      return
+    }
+    
+    setPopularCities(prev => [...prev, newCity])
+    toast({
+      title: "City Added",
+      description: `${cityName} has been added to popular cities.`,
+    })
+    closeMapModal()
+  }
+
+  const deleteCity = (cityId: string) => {
+    const city = popularCities.find(c => c.id === cityId)
+    setPopularCities(prev => prev.filter(c => c.id !== cityId))
+    toast({
+      title: "City Removed",
+      description: `${city?.name} has been removed from popular cities.`,
+    })
+  }
+
+  // Credentials modal handlers
+  const openCredentialsModal = () => {
+    setCredentialsModalOpen(true)
+    setCredentialsForm({
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    })
+  }
+
+  const closeCredentialsModal = () => {
+    setCredentialsModalOpen(false)
+    setCredentialsForm({
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    })
+  }
+
+  const openForgotPasswordModal = () => {
+    setForgotPasswordModalOpen(true)
+    setForgotPasswordForm({
+      email: "",
+      newPassword: "",
+      confirmPassword: ""
+    })
+  }
+
+  const closeForgotPasswordModal = () => {
+    setForgotPasswordModalOpen(false)
+    setForgotPasswordForm({
+      email: "",
+      newPassword: "",
+      confirmPassword: ""
+    })
+  }
+
+  const handleCredentialsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setCredentialsForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleForgotPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setForgotPasswordForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleUpdateCredentials = () => {
+    // Validate form
+    if (!credentialsForm.oldPassword) {
+      toast({
+        title: "Current Password Required",
+        description: "Please enter your current password.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!credentialsForm.newPassword) {
+      toast({
+        title: "New Password Required",
+        description: "Please enter a new password.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (credentialsForm.newPassword.length < 8) {
+      toast({
+        title: "Password Too Short",
+        description: "New password must be at least 8 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (credentialsForm.newPassword !== credentialsForm.confirmPassword) {
+      toast({
+        title: "Passwords Don't Match",
+        description: "New password and confirm password must match.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Here you would typically make an API call to update credentials
+    // For now, we'll just show a success message
+    toast({
+      title: "Password Updated",
+      description: "Your password has been updated successfully.",
+    })
+    
+    closeCredentialsModal()
+  }
+
+  const handleForgotPassword = () => {
+    // Validate form
+    if (!forgotPasswordForm.email.trim()) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!forgotPasswordForm.newPassword) {
+      toast({
+        title: "New Password Required",
+        description: "Please enter a new password.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (forgotPasswordForm.newPassword.length < 8) {
+      toast({
+        title: "Password Too Short",
+        description: "New password must be at least 8 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (forgotPasswordForm.newPassword !== forgotPasswordForm.confirmPassword) {
+      toast({
+        title: "Passwords Don't Match",
+        description: "New password and confirm password must match.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Here you would typically make an API call to reset password
+    // For now, we'll just show a success message
+    toast({
+      title: "Password Reset",
+      description: "Your password has been reset successfully. Please check your email for confirmation.",
+    })
+    
+    closeForgotPasswordModal()
   }
 
   return (
@@ -1031,21 +1265,339 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
+
+                    {/* Popular Cities Management */}
+                    <div className="pt-2">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Location Settings</h3>
+                      <div className="p-4 sm:p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                              <Globe className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">Popular Locations</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Manage cities that appear in the popular locations list
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={openMapModal}
+                            size="lg"
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 w-full sm:w-auto"
+                          >
+                            <Globe className="w-5 h-5 mr-2" />
+                            Manage Locations
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="pt-2">
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Admin Credentials</h3>
-                      <Button
-                        className="w-full sm:w-auto"
-                        variant="outline"
-                        onClick={() => router.push("/admin/update-credentials")}
-                      >
-                        Update Username & Password
-                      </Button>
+                      <div className="p-4 sm:p-6 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                              <Shield className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 dark:text-white">Password Security</h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Update your password and manage account security
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={openCredentialsModal}
+                            size="lg"
+                            className="bg-gray-600 hover:bg-gray-700 text-white px-6 w-full sm:w-auto"
+                          >
+                            <Shield className="w-5 h-5 mr-2" />
+                            Update Password
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* City Management Modal - Moved outside tabs */}
+          <Dialog open={cityModalOpen} onOpenChange={closeCityModal}>
+            <DialogContent className="max-w-4xl w-[95vw] sm:w-[90vw] max-h-[85vh] overflow-hidden flex flex-col">
+              <DialogHeader className="pb-4">
+                <DialogTitle className="flex items-center space-x-3 text-xl">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-white" />
+                  </div>
+                  <span>Manage Popular Locations</span>
+                </DialogTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Add, remove, and manage cities that appear in the popular locations list
+                </p>
+              </DialogHeader>
+              
+              <div className="flex-1 overflow-y-auto">
+                {/* Cities List */}
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Current Cities</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {popularCities.length} location{popularCities.length !== 1 ? 's' : ''} in the list
+                      </p>
+                    </div>
+                    <Button
+                      onClick={openMapModal}
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 w-full sm:w-auto"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      Add New Location
+                    </Button>
+                  </div>
+                  
+                  <div className="grid gap-4">
+                    {popularCities.map((city) => (
+                      <div key={city.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors gap-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <MapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-gray-900 dark:text-white text-lg">{city.name}</h5>
+                            <p className="text-gray-600 dark:text-gray-400">{city.state}, {city.country}</p>
+                            {city.coordinates && (
+                              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                {city.coordinates.lat.toFixed(4)}, {city.coordinates.lng.toFixed(4)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteCity(city.id)}
+                            className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-600 dark:hover:bg-red-900/30 px-4 w-full sm:w-auto"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {popularCities.length === 0 && (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Globe className="w-8 h-8 text-gray-400" />
+                        </div>
+                        <h5 className="font-medium text-gray-900 dark:text-white mb-2">No locations added yet</h5>
+                        <p className="text-gray-600 dark:text-gray-400 mb-4">
+                          Start by adding your first popular location using the button above.
+                        </p>
+                        <Button
+                          onClick={openMapModal}
+                          size="lg"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Plus className="w-5 h-5 mr-2" />
+                          Add First Location
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button variant="outline" onClick={closeCityModal} size="lg" className="px-6 w-full sm:w-auto">
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Map Search Modal */}
+          <Dialog open={mapModalOpen} onOpenChange={closeMapModal}>
+            <DialogContent className="max-w-7xl w-[95vw] h-[90vh] sm:h-[85vh] p-0 overflow-hidden">
+              <LocationMap 
+                onLocationSelect={(location) => {
+                  addCityFromMap(location.name, location.state, location.coordinates?.lat || 0, location.coordinates?.lng || 0)
+                }}
+                onClose={closeMapModal}
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* Credentials Update Modal */}
+          <Dialog open={credentialsModalOpen} onOpenChange={closeCredentialsModal}>
+            <DialogContent className="max-w-md w-[95vw] sm:w-full">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-3 text-xl">
+                  <div className="w-8 h-8 bg-gradient-to-r from-gray-600 to-gray-700 rounded-full flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <span>Update Password</span>
+                </DialogTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Update your password for enhanced security
+                </p>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="oldPassword">Current Password</Label>
+                  <Input
+                    id="oldPassword"
+                    name="oldPassword"
+                    type="password"
+                    placeholder="Enter current password"
+                    value={credentialsForm.oldPassword}
+                    onChange={handleCredentialsChange}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={credentialsForm.newPassword}
+                    onChange={handleCredentialsChange}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Password must be at least 8 characters long
+                  </p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={credentialsForm.confirmPassword}
+                    onChange={handleCredentialsChange}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    onClick={openForgotPasswordModal}
+                    variant="link"
+                    className="text-blue-600 hover:text-blue-700 p-0 h-auto text-sm"
+                  >
+                    Forgot your password?
+                  </Button>
+                </div>
+              </div>
+              
+              <DialogFooter className="space-y-2 sm:space-y-0">
+                <Button
+                  variant="outline"
+                  onClick={closeCredentialsModal}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdateCredentials}
+                  className="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white"
+                >
+                  Update Password
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Forgot Password Modal */}
+          <Dialog open={forgotPasswordModalOpen} onOpenChange={closeForgotPasswordModal}>
+            <DialogContent className="max-w-md w-[95vw] sm:w-full">
+              <DialogHeader>
+                <DialogTitle className="flex items-center space-x-3 text-xl">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <span>Reset Password</span>
+                </DialogTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Enter your email and new password to reset your account
+                </p>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div>
+                  <Label htmlFor="resetEmail">Email Address</Label>
+                  <Input
+                    id="resetEmail"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={forgotPasswordForm.email}
+                    onChange={handleForgotPasswordChange}
+                    className="mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="resetNewPassword">New Password</Label>
+                  <Input
+                    id="resetNewPassword"
+                    name="newPassword"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={forgotPasswordForm.newPassword}
+                    onChange={handleForgotPasswordChange}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Password must be at least 8 characters long
+                  </p>
+                </div>
+                
+                <div>
+                  <Label htmlFor="resetConfirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="resetConfirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={forgotPasswordForm.confirmPassword}
+                    onChange={handleForgotPasswordChange}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter className="space-y-2 sm:space-y-0">
+                <Button
+                  variant="outline"
+                  onClick={closeForgotPasswordModal}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleForgotPassword}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Reset Password
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
     </div>
