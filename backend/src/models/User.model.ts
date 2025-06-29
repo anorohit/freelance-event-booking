@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose'
 import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 
 // Zod schema for validation
 export const userSchemaZod = z.object({
@@ -26,6 +27,7 @@ export interface IUser extends Document {
   role: 'user' | 'admin'
   createdAt: Date
   updatedAt: Date
+  isPasswordCorrect(candidatePassword: string): Promise<boolean>
 }
 
 // Mongoose schema
@@ -70,5 +72,18 @@ const userSchema = new Schema<IUser>({
 }, {
   timestamps: true
 })
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10)
+  }
+  next()
+})
+
+// Method to check if password is correct
+userSchema.methods.isPasswordCorrect = async function(candidatePassword: string): Promise<boolean> {
+  return await bcrypt.compare(candidatePassword, this.password)
+}
 
 export const User = mongoose.model<IUser>('User', userSchema)

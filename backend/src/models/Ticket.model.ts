@@ -8,9 +8,10 @@ export const ticketSchemaZod = z.object({
   ticketTypeId: z.string(),
   ticketNumber: z.string(),
   qrCode: z.string(),
-  status: z.enum(['active', 'used', 'expired', 'cancelled']).default('active'),
+  status: z.enum(['active', 'used']).default('active'),
   usedAt: z.date().optional(),
-  usedBy: z.string().optional()
+  usedBy: z.string().optional(),
+  downloadUrl: z.string().optional()
 })
 
 export type TicketInput = z.infer<typeof ticketSchemaZod>
@@ -22,13 +23,15 @@ export interface ITicket extends Document {
   ticketTypeId: mongoose.Types.ObjectId
   ticketNumber: string
   qrCode: string
-  status: 'active' | 'used' | 'expired' | 'cancelled'
+  status: 'active' | 'used'
   usedAt?: Date
   usedBy?: string
+  downloadUrl?: string
   createdAt: Date
   updatedAt: Date
   generateTicketNumber(): string
   generateQRCode(): string
+  generateDownloadUrl(): string
 }
 
 const ticketSchema = new Schema<ITicket>({
@@ -64,13 +67,16 @@ const ticketSchema = new Schema<ITicket>({
   },
   status: {
     type: String,
-    enum: ['active', 'used', 'expired', 'cancelled'],
+    enum: ['active', 'used'],
     default: 'active'
   },
   usedAt: {
     type: Date
   },
   usedBy: {
+    type: String
+  },
+  downloadUrl: {
     type: String
   }
 }, {
@@ -94,13 +100,21 @@ ticketSchema.methods.generateQRCode = function() {
   })
 }
 
-// Pre-save hook to generate ticket number and QR code
+// Generate download URL for ticket
+ticketSchema.methods.generateDownloadUrl = function() {
+  return `/api/tickets/${this._id}/download`
+}
+
+// Pre-save hook to generate ticket number, QR code, and download URL
 ticketSchema.pre('save', function(next) {
   if (!this.ticketNumber) {
     this.ticketNumber = this.generateTicketNumber()
   }
   if (!this.qrCode) {
     this.qrCode = this.generateQRCode()
+  }
+  if (!this.downloadUrl) {
+    this.downloadUrl = this.generateDownloadUrl()
   }
   next()
 })

@@ -15,7 +15,8 @@ export const bookingSchemaZod = z.object({
   totalAmount: z.number().min(0, 'Total amount must be non-negative'),
   status: z.enum(['pending', 'confirmed']).default('pending'),
   paymentStatus: z.enum(['pending', 'completed', 'failed']).default('pending'),
-  bookingItems: z.array(bookingItemSchemaZod).min(1, 'At least one booking item required')
+  bookingItems: z.array(bookingItemSchemaZod).min(1, 'At least one booking item required'),
+  transactionId: z.string().optional()
 })
 
 export type BookingInput = z.infer<typeof bookingSchemaZod>
@@ -31,6 +32,7 @@ export interface IBooking extends Document {
     quantity: number
     pricePerTicket: number
   }>
+  transactionId?: string
   createdAt: Date
   updatedAt: Date
   generateTickets(): Promise<ITicket[]>
@@ -80,9 +82,24 @@ const bookingSchema = new Schema<IBooking>({
       required: true,
       min: 0
     }
-  }]
+  }],
+  transactionId: {
+    type: String,
+    unique: true,
+    sparse: true
+  }
 }, {
   timestamps: true
+})
+
+// Pre-save hook to generate transaction ID
+bookingSchema.pre('save', function(next) {
+  if (!this.transactionId) {
+    const timestamp = Date.now().toString(36)
+    const random = Math.random().toString(36).substr(2, 5)
+    this.transactionId = `TXN${timestamp.toUpperCase()}${random.toUpperCase()}`
+  }
+  next()
 })
 
 bookingSchema.methods.generateTickets = async function(): Promise<ITicket[]> {
@@ -113,7 +130,7 @@ bookingSchema.methods.getTransactionDetails = async function() {
   })
   
   return {
-    transactionId: this._id,
+    transactionId: this.transactionId,
     eventTitle: event?.title,
     eventDate: event?.date,
     status: this.status,

@@ -155,16 +155,6 @@ export function OptimizedAccountModal({ isOpen, onClose, transactions }: Optimiz
                             Download
                           </Button>
                         )}
-                        {transaction.status === "Upcoming" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-7 flex-1 text-red-600 hover:text-red-700 hover:border-red-300"
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Cancel
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ))}
