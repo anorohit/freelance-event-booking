@@ -244,8 +244,11 @@ export default function AdminDashboard() {
     setImagePreview(null)
   }
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: (name === 'duration' || name === 'ageLimit') ? Number(value) : value
+    }));
   }
   const handleSave = async () => {
     if (
@@ -355,7 +358,7 @@ export default function AdminDashboard() {
     setForm(prev => ({
       ...prev,
       tickets: prev.tickets.map((ticket, i) =>
-        i === index ? { ...ticket, [field]: value } : ticket
+        i === index ? { ...ticket, [field]: (field === 'price' || field === 'available') ? Number(value) : value } : ticket
       )
     }))
   }
@@ -993,7 +996,8 @@ export default function AdminDashboard() {
                         <Input
                           id="duration"
                           name="duration"
-                          type="text"
+                          type="number"
+                          min={0}
                           placeholder="e.g., 2"
                           value={form.duration}
                           onChange={e => setForm(prev => ({ ...prev, duration: e.target.value }))}
@@ -1007,7 +1011,8 @@ export default function AdminDashboard() {
                         <Input
                           id="ageLimit"
                           name="ageLimit"
-                          type="text"
+                          type="number"
+                          min={0}
                           placeholder="e.g., 18"
                           value={form.ageLimit}
                           onChange={e => setForm(prev => ({ ...prev, ageLimit: e.target.value }))}
@@ -1123,18 +1128,20 @@ export default function AdminDashboard() {
                             <div>
                               <Label>Price (₹)</Label>
                               <Input
-                                type="text"
+                                type="number"
+                                min={0}
                                 value={ticket.price}
-                                onChange={(e) => updateTicket(index, 'price', e.target.value)}
+                                onChange={(e) => updateTicket(index, 'price', Number(e.target.value))}
                                 placeholder="0"
                               />
                             </div>
                             <div>
                               <Label>Available</Label>
                               <Input
-                                type="text"
+                                type="number"
+                                min={0}
                                 value={ticket.available}
-                                onChange={(e) => updateTicket(index, 'available', e.target.value)}
+                                onChange={(e) => updateTicket(index, 'available', Number(e.target.value))}
                                 placeholder="0"
                               />
                             </div>
