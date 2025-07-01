@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { use, useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -115,6 +115,7 @@ interface CartItem {
 }
 
 export default function BookingPage({ params }: { params: { id: string } }) {
+  const { id } = use(params)
   const [currentStep, setCurrentStep] = useState<"selection" | "details" | "payment" | "confirmation">("selection")
   const [cart, setCart] = useState<CartItem[]>([])
   const [formData, setFormData] = useState({
@@ -130,7 +131,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
     cardName: "",
   })
 
-  const event = eventData[params.id as keyof typeof eventData] || eventData["1"]
+  const event = eventData[id as keyof typeof eventData] || eventData["1"]
 
   // Auto-scroll to top when step changes
   useEffect(() => {

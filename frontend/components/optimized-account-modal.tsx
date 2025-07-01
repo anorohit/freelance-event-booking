@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { X, Download, Eye, Trash2, Settings, CreditCard, Bell, Shield, LogOut } from "lucide-react"
+import { X, Download, Eye, Trash2, Settings, CreditCard, Bell, Shield, LogOut, Pencil } from "lucide-react"
 import Link from "next/link"
+import type { SessionUser } from '@/lib/ironSessionOptions';
+import { useState } from "react"
 
 interface Transaction {
   id: string
@@ -22,9 +24,34 @@ interface OptimizedAccountModalProps {
   onClose: () => void
   transactions: Transaction[]
   onLogout: () => void
+  user: SessionUser | null
+  onAddPhone: () => void
+  onEditProfile: (name: string, phone: string) => void
 }
 
-export function OptimizedAccountModal({ isOpen, onClose, transactions, onLogout }: OptimizedAccountModalProps) {
+export function OptimizedAccountModal({ isOpen, onClose, transactions, onLogout, user, onAddPhone, onEditProfile }: OptimizedAccountModalProps) {
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
+
+  const handleEditClick = () => {
+    setEditName(user?.name || '');
+    setEditPhone(user?.phone || '');
+    setShowEditModal(true);
+  };
+
+  const handleEditCancel = () => {
+    setShowEditModal(false);
+  };
+
+  const handleEditSave = () => {
+    if (editName.trim()) {
+      onEditProfile(editName, editPhone);
+      setShowEditModal(false);
+    }
+  };
+
   if (!isOpen) return null
 
   return (
@@ -47,29 +74,85 @@ export function OptimizedAccountModal({ isOpen, onClose, transactions, onLogout 
           </div>
         </CardHeader>
 
+        {/* Edit Profile Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/40">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-auto border border-gray-200 dark:border-slate-700">
+              <h2 className="text-xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-blue-600 dark:text-blue-400" /> Edit Profile
+              </h2>
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={e => setEditPhone(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-8">
+                <Button variant="outline" onClick={handleEditCancel}>Cancel</Button>
+                <Button onClick={handleEditSave} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">Save</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Scrollable Content */}
         <CardContent className="flex-1 overflow-hidden p-0">
           <div className="h-full overflow-y-auto custom-scrollbar">
             <div className="p-6 space-y-6">
               {/* User Info */}
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Profile Information</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    Profile Information
+                    <button
+                      type="button"
+                      onClick={handleEditClick}
+                      className="ml-2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors"
+                      title="Edit Profile"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </h3>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-300">Name</p>
-                    <p className="font-medium text-gray-900 dark:text-white">John Doe</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{user?.name || ''}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-300">Email</p>
-                    <p className="font-medium text-gray-900 dark:text-white">john.doe@example.com</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{user?.email || ''}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-300">Phone</p>
-                    <p className="font-medium text-gray-900 dark:text-white">+91 98765 43210</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 dark:text-white">{user?.phone || ''}</span>
+                      {!user?.phone && (
+                        <Button size="xs" variant="outline" className="h-6 px-2 py-0 text-xs" onClick={onAddPhone}>
+                          Add
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-300">Member Since</p>
-                    <p className="font-medium text-gray-900 dark:text-white">January 2024</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {user?.createdAt ? new Date(user.createdAt).toLocaleString('default', { month: 'long', year: 'numeric' }) : ''}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -159,29 +242,6 @@ export function OptimizedAccountModal({ isOpen, onClose, transactions, onLogout 
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Account Settings */}
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Account Settings</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Button variant="outline" className="justify-start h-12">
-                    <Settings className="w-4 h-4 mr-3" />
-                    <div className="text-left">
-                      <div className="font-medium">Edit Profile</div>
-                      <div className="text-xs text-gray-500">Update personal information</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="justify-start h-12">
-                    <Shield className="w-4 h-4 mr-3" />
-                    <div className="text-left">
-                      <div className="font-medium">Privacy & Security</div>
-                      <div className="text-xs text-gray-500">Password & privacy settings</div>
-                    </div>
-                  </Button>
                 </div>
               </div>
 

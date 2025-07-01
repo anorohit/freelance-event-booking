@@ -16,14 +16,9 @@ export function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: GoogleLogi
 
   if (!isOpen) return null
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true)
-    // Simulate Google login process
-    setTimeout(() => {
-      setIsLoading(false)
-      onLoginSuccess()
-    }, 2000)
-  }
+  const handleGoogleLogin = () => {
+    window.location.href = "/api/auth/google";
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

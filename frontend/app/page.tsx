@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -20,11 +20,7 @@ import {
   Star,
   Music,
   Mic,
-  Utensils,
   Palette,
-  BookOpen,
-  Laptop,
-  PartyPopper,
   Sparkles,
   SlidersHorizontal,
 } from "lucide-react"
@@ -35,6 +31,7 @@ import { GoogleLoginModal } from "@/components/google-login-modal"
 import { PhoneNumberModal } from "@/components/phone-number-modal"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { LocationDetector } from "@/components/location-detector"
+import type { SessionUser } from '@/lib/ironSessionOptions'
 
 const cities = [
   { value: "mumbai", label: "Mumbai" },
@@ -343,6 +340,8 @@ export default function HomePage() {
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isNewUser, setIsNewUser] = useState(false)
+  const [user, setUser] = useState<SessionUser | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
 
   const cityEvents = events[selectedCity as keyof typeof events] || []
   const shouldShowPopularEvents = cityEvents.length === 0
@@ -385,21 +384,30 @@ export default function HomePage() {
   }
 
   const handleLoginSuccess = () => {
-    setIsLoggedIn(true)
+    // After Google login, the backend will redirect and session will be set.
+    // This handler can just close the modal (session check will update state)
     setShowLoginModal(false)
-    // Simulate checking if user is new (in real app, this would come from your backend)
-    const isNew = Math.random() > 0.5 // 50% chance of being new user for demo
-    setIsNewUser(isNew)
-    if (isNew) {
-      setShowPhoneModal(true)
-    }
   }
 
-  const handlePhoneSubmit = (phone: string) => {
-    // Here you would typically save the phone number to your backend
-    console.log("Phone number saved:", phone)
-    setShowPhoneModal(false)
-    setIsNewUser(false)
+  const handlePhoneSubmit = async (phone: string) => {
+    // Save the phone number to your backend
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+        setShowPhoneModal(false);
+        setIsNewUser(false);
+      } else {
+        alert(data.error || 'Failed to update phone number');
+      }
+    } catch (err) {
+      alert('Failed to update phone number');
+    }
   }
 
   const handlePhoneSkip = () => {
@@ -407,8 +415,10 @@ export default function HomePage() {
     setIsNewUser(false)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
     setIsLoggedIn(false)
+    setUser(null)
     setShowAccountModal(false)
   }
 
@@ -416,6 +426,34 @@ export default function HomePage() {
     setCurrentLocation(location)
     setSelectedCity(location.id)
   }
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then(res => res.json())
+      .then(data => {
+        setIsLoggedIn(data.loggedIn)
+        setUser(data.user)
+      })
+      .finally(() => setAuthLoading(false))
+  }, [])
+
+  const handleEditProfile = async (name: string, phone: string) => {
+    try {
+      const res = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+      } else {
+        alert(data.error || 'Failed to update profile');
+      }
+    } catch (err) {
+      alert('Failed to update profile');
+    }
+  };
 
   const EventCard = ({ event, showBadge = false }: { event: any; showBadge?: boolean }) => (
     <Card className="transition-all duration-500 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-0 overflow-hidden h-full flex flex-col">
@@ -535,7 +573,11 @@ export default function HomePage() {
                 className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-gray-300/50 dark:border-gray-600/50 hover:bg-white/80 dark:hover:bg-slate-700/80"
               >
                 <User className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">{isLoggedIn ? "Account" : "Login"}</span>
+                <span className="hidden sm:inline">
+                  {authLoading ? (
+                    <span className="inline-block w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
+                  ) : isLoggedIn ? (user?.name || user?.email || "Account") : "Login"}
+                </span>
               </Button>
             </div>
           </div>
@@ -798,6 +840,12 @@ export default function HomePage() {
         onClose={() => setShowAccountModal(false)}
         transactions={mockTransactions}
         onLogout={handleLogout}
+        user={user}
+        onAddPhone={() => {
+          setShowAccountModal(false);
+          setShowPhoneModal(true);
+        }}
+        onEditProfile={handleEditProfile}
       />
     </div>
   )

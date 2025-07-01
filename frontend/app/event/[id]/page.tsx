@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { ArrowLeft, MapPin, Calendar, Clock, Users, Star, Crown, Award, Medal, Flame, TrendingUp } from "lucide-react"
 import { RatingFeedback } from "@/components/rating-feedback"
+import { use } from "react"
 
 // Mock event data with enhanced details
 const eventData = {
@@ -142,7 +143,8 @@ const mockRatings = [
 ]
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
-  const event = eventData[params.id as keyof typeof eventData] || eventData["1"]
+  const { id } = use(params)
+  const event = eventData[id as keyof typeof eventData] || eventData["1"]
   const lowestPrice = Math.min(...Object.values(event.ticketTypes).map((t) => t.price))
 
   const handleRatingSubmit = async (rating: any) => {
