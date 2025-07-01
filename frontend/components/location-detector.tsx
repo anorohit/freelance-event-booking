@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { X, MapPin, Navigation, Search, Loader2, CheckCircle } from "lucide-react"
+import IndianCityAutocomplete from "@/components/IndianCityAutocomplete"
 
 interface Location {
   id: string
@@ -22,34 +23,40 @@ interface LocationDetectorProps {
   currentLocation?: Location
 }
 
-const popularCities: Location[] = [
-  { id: "mumbai", name: "Mumbai", state: "Maharashtra", country: "India" },
-  { id: "delhi", name: "Delhi", state: "Delhi", country: "India" },
-  { id: "bangalore", name: "Bangalore", state: "Karnataka", country: "India" },
-  { id: "chennai", name: "Chennai", state: "Tamil Nadu", country: "India" },
-  { id: "kolkata", name: "Kolkata", state: "West Bengal", country: "India" },
-  { id: "hyderabad", name: "Hyderabad", state: "Telangana", country: "India" },
-  { id: "pune", name: "Pune", state: "Maharashtra", country: "India" },
-  { id: "ahmedabad", name: "Ahmedabad", state: "Gujarat", country: "India" },
-]
-
 export function LocationDetector({ isOpen, onClose, onLocationSelect, currentLocation }: LocationDetectorProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchCity, setSearchCity] = useState<any>(null)
   const [isDetecting, setIsDetecting] = useState(false)
   const [detectedLocation, setDetectedLocation] = useState<Location | null>(null)
-  const [filteredCities, setFilteredCities] = useState<Location[]>(popularCities)
+  const [popularCities, setPopularCities] = useState<Location[]>([])
+  const [loadingCities, setLoadingCities] = useState(true)
 
   useEffect(() => {
-    if (searchQuery) {
-      const filtered = popularCities.filter(city =>
-        city.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        city.state.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      setFilteredCities(filtered)
-    } else {
-      setFilteredCities(popularCities)
+    async function fetchPopularCities() {
+      setLoadingCities(true)
+      try {
+        const res = await fetch("/api/admin/settings/popular-cities")
+        const data = await res.json()
+        if (data.success && Array.isArray(data.data)) {
+          setPopularCities(
+            data.data.map((city: any) => ({
+              id: city.id,
+              name: city.name,
+              state: city.stateCode || city.state || "",
+              country: city.countryCode || city.country || "India",
+              coordinates: city.latitude && city.longitude ? { lat: Number(city.latitude), lng: Number(city.longitude) } : undefined,
+            }))
+          )
+        } else {
+          setPopularCities([])
+        }
+      } catch {
+        setPopularCities([])
+      } finally {
+        setLoadingCities(false)
+      }
     }
-  }, [searchQuery])
+    fetchPopularCities()
+  }, [])
 
   const detectLocation = async () => {
     setIsDetecting(true)
@@ -226,35 +233,47 @@ export function LocationDetector({ isOpen, onClose, onLocationSelect, currentLoc
           {/* Search */}
           <div className="space-y-3">
             <h3 className="font-medium text-gray-900 dark:text-white">Search Cities</h3>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Type city name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400"
-              />
-            </div>
+            <IndianCityAutocomplete
+              value={searchCity}
+              onChange={city => {
+                setSearchCity(city)
+                if (city) {
+                  handleLocationSelect({
+                    id: `${city.name.toLowerCase().replace(/\s+/g, '-')}-${city.stateCode}`,
+                    name: city.name,
+                    state: city.stateCode,
+                    country: city.countryCode || "India",
+                    coordinates: city.latitude && city.longitude ? { lat: Number(city.latitude), lng: Number(city.longitude) } : undefined,
+                  })
+                }
+              }}
+              placeholder="Type city name..."
+              className="w-full"
+            />
           </div>
 
           {/* Popular Cities */}
           <div className="space-y-3">
             <h3 className="font-medium text-gray-900 dark:text-white">Popular Cities</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {filteredCities.map((city) => (
-                <Button
-                  key={city.id}
-                  variant="outline"
-                  onClick={() => handleLocationSelect(city)}
-                  className="w-full justify-start h-auto p-4 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                >
-                  <div className="text-left">
-                    <div className="font-medium text-gray-900 dark:text-white">{city.name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{city.state}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
+            {loadingCities ? (
+              <div className="text-center py-6 text-gray-500">Loading...</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {popularCities.map((city) => (
+                  <Button
+                    key={city.id}
+                    variant="outline"
+                    onClick={() => handleLocationSelect(city)}
+                    className="w-full justify-start h-auto p-4 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                  >
+                    <div className="text-left">
+                      <div className="font-medium text-gray-900 dark:text-white">{city.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{city.state}</div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
