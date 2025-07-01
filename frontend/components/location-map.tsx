@@ -3,16 +3,13 @@
 import { useState, useEffect, useRef } from "react"
 import { Loader } from "@googlemaps/js-api-loader"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
-  Search, 
   MapPin, 
   Navigation, 
   Loader2, 
   CheckCircle,
-  X,
   Globe,
   Plus
 } from "lucide-react"
@@ -36,6 +33,7 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
+  const [popularCities, setPopularCities] = useState<Location[]>([])
   const mapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -78,6 +76,21 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
     initMap()
   }, [])
 
+  // Fetch popular cities on mount
+  useEffect(() => {
+    fetchPopularCities()
+  }, [])
+
+  const fetchPopularCities = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/popular-cities')
+      const data = await res.json()
+      if (data.success && data.data) {
+        setPopularCities(data.data)
+      }
+    } catch {}
+  }
+
   // New handler for Ola suggestion select
   async function handleOlaSuggestion(s: { description: string; lat?: number; lng?: number }) {
     setSearchQuery(s.description)
@@ -98,9 +111,29 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
     }
   }
 
-  const confirmLocation = () => {
+  const confirmLocation = async () => {
     if (selectedLocation) {
-      onLocationSelect(selectedLocation)
+      // Add location to backend
+      const newCity = {
+        id: selectedLocation.name.toLowerCase().replace(/\s+/g, '-'),
+        name: selectedLocation.name,
+        state: selectedLocation.state || "",
+        country: selectedLocation.country,
+        coordinates: selectedLocation.coordinates
+      }
+      try {
+        const res = await fetch('/api/admin/settings/popular-cities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newCity),
+        })
+        const data = await res.json()
+        if (data.success) {
+          await fetchPopularCities()
+        }
+      } catch {}
+      setSelectedLocation(null)
+      setSearchQuery("")
     }
   }
 
@@ -137,17 +170,47 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col xl:flex-row min-h-0">
-        {/* Map */}
-        <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] xl:min-h-0">
+        {/* Map and Added Locations */}
+        <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] xl:min-h-0 flex flex-col">
           {isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-slate-800">
+            <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-slate-800">
               <div className="text-center space-y-3">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
                 <p className="text-gray-600 dark:text-gray-400">Loading map...</p>
               </div>
             </div>
           ) : (
-            <div ref={mapRef} className="w-full h-full" />
+            <>
+              <div ref={mapRef} className="w-full h-full flex-1" />
+              {popularCities && popularCities.length > 0 && (
+                <Card className="bg-white/90 dark:bg-slate-800/90 border border-gray-200 dark:border-gray-700 shadow-sm mt-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-500 dark:text-blue-300" />
+                      Added Locations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="max-h-40 overflow-y-auto p-2">
+                    <ul className="space-y-2">
+                      {popularCities.map(city => (
+                        <li key={city.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
+                          <MapPin className="w-4 h-4 text-blue-400" />
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">{city.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{city.country}</div>
+                            {city.coordinates && (
+                              <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                                {city.coordinates.lat.toFixed(4)}, {city.coordinates.lng.toFixed(4)}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </div>
 

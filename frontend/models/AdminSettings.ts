@@ -1,5 +1,27 @@
 import mongoose, { Schema, Document } from 'mongoose'
 
+export interface PopularCity extends Document {
+  id: string
+  name: string
+  country: string
+  coordinates?: { lat: number; lng: number }
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Define a separate schema and model for PopularCity
+const PopularCitySchema = new Schema<PopularCity>({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  country: { type: String, required: true },
+  coordinates: {
+    lat: { type: Number },
+    lng: { type: Number }
+  }
+}, { timestamps: true });
+
+export const PopularCity = mongoose.models.PopularCity || mongoose.model<PopularCity>('PopularCity', PopularCitySchema);
+
 export interface IAdminSettings extends Document {
   showLocationEvents: boolean
   showHotEvents: boolean

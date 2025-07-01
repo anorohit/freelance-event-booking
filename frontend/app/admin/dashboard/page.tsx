@@ -86,6 +86,7 @@ export default function AdminDashboard() {
     showPopularEvents: true,
   })
   const [maintenanceMode, setMaintenanceMode] = useState(false)
+  const [settingsLoading, setSettingsLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -151,16 +152,7 @@ export default function AdminDashboard() {
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false)
 
   // Popular Cities Management
-  const [popularCities, setPopularCities] = useState<PopularCity[]>([
-    { id: "mumbai", name: "Mumbai", state: "Maharashtra", country: "India", coordinates: { lat: 19.0760, lng: 72.8777 } },
-    { id: "delhi", name: "Delhi", state: "Delhi", country: "India", coordinates: { lat: 28.7041, lng: 77.1025 } },
-    { id: "bangalore", name: "Bangalore", state: "Karnataka", country: "India", coordinates: { lat: 12.9716, lng: 77.5946 } },
-    { id: "chennai", name: "Chennai", state: "Tamil Nadu", country: "India", coordinates: { lat: 13.0827, lng: 80.2707 } },
-    { id: "kolkata", name: "Kolkata", state: "West Bengal", country: "India", coordinates: { lat: 22.5726, lng: 88.3639 } },
-    { id: "hyderabad", name: "Hyderabad", state: "Telangana", country: "India", coordinates: { lat: 17.3850, lng: 78.4867 } },
-    { id: "pune", name: "Pune", state: "Maharashtra", country: "India", coordinates: { lat: 18.5204, lng: 73.8567 } },
-    { id: "ahmedabad", name: "Ahmedabad", state: "Gujarat", country: "India", coordinates: { lat: 23.0225, lng: 72.5714 } },
-  ])
+  const [popularCities, setPopularCities] = useState<PopularCity[]>([])
   const [cityModalOpen, setCityModalOpen] = useState(false)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [credentialsModalOpen, setCredentialsModalOpen] = useState(false)
@@ -188,6 +180,64 @@ export default function AdminDashboard() {
   // Add after other useState hooks
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+
+  // Fetch admin settings on mount
+  useEffect(() => {
+    async function fetchSettings() {
+      setSettingsLoading(true)
+      try {
+        const res = await fetch("/api/admin/settings")
+        const data = await res.json()
+        if (data.success && data.data) {
+          setSectionVisibility({
+            showLocationEvents: data.data.showLocationEvents,
+            showHotEvents: data.data.showHotEvents,
+            showPopularEvents: data.data.showPopularEvents,
+          })
+          setMaintenanceMode(data.data.maintenanceMode)
+          // Fetch popular cities separately
+          const cityRes = await fetch("/api/admin/settings/popular-cities")
+          const cityData = await cityRes.json()
+          if (cityData.success && cityData.data) {
+            setPopularCities(cityData.data)
+          }
+        } else {
+          toast({ title: "Failed to fetch site settings" })
+        }
+      } catch (e) {
+        toast({ title: "Error fetching site settings" })
+      }
+      setSettingsLoading(false)
+    }
+    fetchSettings()
+  }, [])
+
+  // Handler to update settings
+  const updateSettings = async (updates: Partial<typeof sectionVisibility> & { maintenanceMode?: boolean }) => {
+    setSettingsLoading(true)
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      })
+      const data = await res.json()
+      if (data.success && data.data) {
+        setSectionVisibility({
+          showLocationEvents: data.data.showLocationEvents,
+          showHotEvents: data.data.showHotEvents,
+          showPopularEvents: data.data.showPopularEvents,
+        })
+        setMaintenanceMode(data.data.maintenanceMode)
+        toast({ title: "Settings updated" })
+      } else {
+        toast({ title: "Failed to update settings" })
+      }
+    } catch (e) {
+      toast({ title: "Error updating settings" })
+    }
+    setSettingsLoading(false)
+  }
 
   // Handlers
   const openAddModal = () => {
@@ -455,42 +505,6 @@ export default function AdminDashboard() {
     setCityModalOpen(false)
   }
 
-  const addCityFromMap = (cityName: string, state: string, lat: number, lng: number) => {
-    const newCity = {
-      id: cityName.toLowerCase().replace(/\s+/g, '-'),
-      name: cityName,
-      state: state,
-      country: "India",
-      coordinates: { lat, lng }
-    }
-    
-    // Check if city already exists
-    if (popularCities.find(c => c.id === newCity.id)) {
-      toast({
-        title: "City Already Exists",
-        description: `${cityName} is already in the popular cities list.`,
-        variant: "destructive",
-      })
-      return
-    }
-    
-    setPopularCities(prev => [...prev, newCity])
-    toast({
-      title: "City Added",
-      description: `${cityName} has been added to popular cities.`,
-    })
-    closeMapModal()
-  }
-
-  const deleteCity = (cityId: string) => {
-    const city = popularCities.find(c => c.id === cityId)
-    setPopularCities(prev => prev.filter(c => c.id !== cityId))
-    toast({
-      title: "City Removed",
-      description: `${city?.name} has been removed from popular cities.`,
-    })
-  }
-
   // Credentials modal handlers
   const openCredentialsModal = () => {
     setCredentialsModalOpen(true)
@@ -632,6 +646,36 @@ export default function AdminDashboard() {
     })
     
     closeForgotPasswordModal()
+  }
+
+  // Restore deleteCity for Manage Locations modal
+  const deleteCity = async (cityId: string) => {
+    const city = popularCities.find(c => c.id === cityId)
+    try {
+      const res = await fetch(`/api/admin/settings/popular-cities?id=${encodeURIComponent(cityId)}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPopularCities(prev => prev.filter(c => c.id !== cityId))
+        toast({
+          title: "City Removed",
+          description: `${city?.name} has been removed from popular cities.`,
+        })
+      } else {
+        toast({
+          title: "Failed to remove city",
+          description: data.message || 'City not found',
+          variant: "destructive",
+        })
+      }
+    } catch (e) {
+      toast({
+        title: "Error removing city",
+        description: e instanceof Error ? e.message : 'An error occurred',
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -1351,9 +1395,8 @@ export default function AdminDashboard() {
                             </div>
                             <Switch
                               checked={value}
-                              onCheckedChange={(checked) =>
-                                setSectionVisibility((prev) => ({ ...prev, [key]: checked }))
-                              }
+                              onCheckedChange={(checked) => updateSettings({ [key]: checked })}
+                              disabled={settingsLoading}
                             />
                           </div>
                         ))}
@@ -1373,7 +1416,8 @@ export default function AdminDashboard() {
                         </div>
                         <Switch
                           checked={maintenanceMode}
-                          onCheckedChange={setMaintenanceMode}
+                          onCheckedChange={(checked) => updateSettings({ maintenanceMode: checked })}
+                          disabled={settingsLoading}
                         />
                       </div>
                     </div>
@@ -1540,9 +1584,7 @@ export default function AdminDashboard() {
             <DialogContent className="max-w-7xl w-[95vw] h-[90vh] sm:h-[85vh] p-0 overflow-hidden">
               <DialogTitle className="sr-only m-0 p-0">Map Search</DialogTitle>
               <LocationMap 
-                onLocationSelect={(location) => {
-                  addCityFromMap(location.name, location.state, location.coordinates?.lat || 0, location.coordinates?.lng || 0)
-                }}
+                onLocationSelect={() => {}}
                 onClose={closeMapModal}
               />
             </DialogContent>
