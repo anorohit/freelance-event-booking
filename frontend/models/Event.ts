@@ -11,6 +11,13 @@ export interface IEvent extends Document {
   title: string
   about: string
   location: string
+  city: {
+    name: string
+    stateCode: string
+    countryCode: string
+    latitude?: string
+    longitude?: string
+  }
   category: EventCategory
   date: string
   time: string
@@ -50,6 +57,13 @@ const eventSchema = new Schema<IEvent>({
     type: String,
     required: true,
     trim: true
+  },
+  city: {
+    name: { type: String, required: true },
+    stateCode: { type: String, required: true },
+    countryCode: { type: String, required: true },
+    latitude: { type: String },
+    longitude: { type: String }
   },
   category: {
     type: String,

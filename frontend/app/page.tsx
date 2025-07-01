@@ -32,6 +32,7 @@ import { PhoneNumberModal } from "@/components/phone-number-modal"
 import { PullToRefresh } from "@/components/pull-to-refresh"
 import { LocationDetector } from "@/components/location-detector"
 import type { SessionUser } from '@/lib/ironSessionOptions'
+import MaintenanceMode from "@/components/maintenance-mode"
 
 const cities = [
   { value: "mumbai", label: "Mumbai" },
@@ -47,13 +48,6 @@ const categories = [
   { value: "comedy", label: "Comedy", icon: Mic, color: "from-yellow-500 to-orange-500" },
   { value: "workshop", label: "Workshops", icon: Palette, color: "from-pink-500 to-rose-500" },
 ]
-
-// Section visibility controls (will be managed from admin panel)
-const sectionVisibility = {
-  showLocationEvents: true,
-  showHotEvents: true,
-  showPopularEvents: true,
-}
 
 const events = {
   mumbai: [
@@ -342,6 +336,12 @@ export default function HomePage() {
   const [isNewUser, setIsNewUser] = useState(false)
   const [user, setUser] = useState<SessionUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [sectionVisibility, setSectionVisibility] = useState({
+    showLocationEvents: true,
+    showHotEvents: true,
+    showPopularEvents: true,
+    maintenanceMode: false,
+  })
 
   const cityEvents = events[selectedCity as keyof typeof events] || []
   const shouldShowPopularEvents = cityEvents.length === 0
@@ -435,6 +435,24 @@ export default function HomePage() {
         setUser(data.user)
       })
       .finally(() => setAuthLoading(false))
+  }, [])
+
+  useEffect(() => {
+    async function fetchSectionVisibility() {
+      try {
+        const res = await fetch("/api/admin/settings")
+        const data = await res.json()
+        if (data.success && data.data) {
+          setSectionVisibility({
+            showLocationEvents: data.data.showLocationEvents,
+            showHotEvents: data.data.showHotEvents,
+            showPopularEvents: data.data.showPopularEvents,
+            maintenanceMode: data.data.maintenanceMode,
+          })
+        }
+      } catch {}
+    }
+    fetchSectionVisibility()
   }, [])
 
   const handleEditProfile = async (name: string, phone: string) => {
@@ -537,6 +555,10 @@ export default function HomePage() {
       </CardContent>
     </Card>
   )
+
+  if (sectionVisibility.maintenanceMode) {
+    return <MaintenanceMode />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -723,43 +745,56 @@ export default function HomePage() {
           {/* Events Sections */}
           <div className="space-y-12 sm:space-y-16">
             {/* Main Events Section */}
-            {!shouldShowPopularEvents && sectionVisibility.showLocationEvents && (
+            {sectionVisibility.showLocationEvents && (!shouldShowPopularEvents && cityEvents.length > 4 ? (
+              <EnhancedHorizontalCarousel
+                events={filteredEvents}
+                title={`Events in ${currentLocation.name}`}
+                subtitle="Discover what's happening in your city"
+                badgeText={`${filteredEvents.length} Events`}
+                badgeColor="from-green-500 to-emerald-500"
+                showBadge
+              />
+            ) : (
               <>
-                {filteredEvents.length > 4 ? (
-                  <EnhancedHorizontalCarousel
-                    events={filteredEvents}
-                    title={`Events in ${currentLocation.name}`}
-                    subtitle="Discover what's happening in your city"
-                    badgeText={`${filteredEvents.length} Events`}
-                    badgeColor="from-green-500 to-emerald-500"
-                    showBadge
-                  />
-                ) : (
-                  <section>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
-                      <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                          Events in {currentLocation.name}
-                        </h2>
-                        <p className="text-gray-600 dark:text-gray-300">Discover what's happening in your city</p>
-                      </div>
-                      <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 text-sm font-medium w-fit">
-                        {filteredEvents.length} Events
-                      </Badge>
-                    </div>
+                {sectionVisibility.showLocationEvents && (
+                  <>
+                    {filteredEvents.length > 4 ? (
+                      <EnhancedHorizontalCarousel
+                        events={filteredEvents}
+                        title={`Events in ${currentLocation.name}`}
+                        subtitle="Discover what's happening in your city"
+                        badgeText={`${filteredEvents.length} Events`}
+                        badgeColor="from-green-500 to-emerald-500"
+                        showBadge
+                      />
+                    ) : (
+                      <section>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+                          <div>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                              Events in {currentLocation.name}
+                            </h2>
+                            <p className="text-gray-600 dark:text-gray-300">Discover what's happening in your city</p>
+                          </div>
+                          <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 text-sm font-medium w-fit">
+                            {filteredEvents.length} Events
+                          </Badge>
+                        </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                      {filteredEvents.map((event) => (
-                        <EventCard key={event.id} event={event} showBadge />
-                      ))}
-                    </div>
-                  </section>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
+                          {filteredEvents.map((event) => (
+                            <EventCard key={event.id} event={event} showBadge />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>
                 )}
               </>
-            )}
+            ))}
 
             {/* Hot Events Section */}
-            {getHotEvents().length > 0 && sectionVisibility.showHotEvents && (
+            {sectionVisibility.showHotEvents && getHotEvents().length > 0 && (
               <EnhancedHorizontalCarousel
                 events={getHotEvents()}
                 title="🔥 Hot Events"
@@ -772,7 +807,7 @@ export default function HomePage() {
             )}
 
             {/* Popular Events Section */}
-            {getPopularEvents().length > 0 && sectionVisibility.showPopularEvents && (
+            {sectionVisibility.showPopularEvents && getPopularEvents().length > 0 && (
               <EnhancedHorizontalCarousel
                 events={getPopularEvents()}
                 title="⭐ Popular Events"

@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   Calendar as CalendarIcon, 
   Clock, 
-  DollarSign, 
   Edit,
   Eye, 
   EyeOff, 
@@ -39,9 +38,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { LocationMap } from "@/components/location-map"
-import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
+import IndianCityAutocomplete from "@/components/IndianCityAutocomplete"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
 
 interface Ticket {
   name: string
@@ -55,6 +55,7 @@ interface EventForm {
   id: string
   title: string
   location: string
+  cityObj: any
   date: string
   time: string
   duration: string
@@ -94,8 +95,6 @@ export default function AdminDashboard() {
   // Mock data for dashboard
   const stats = {
     totalEvents: 156,
-    totalRevenue: "₹2,45,000",
-    avgRating: 4.6,
   }
 
   const [events, setEvents] = useState<any[]>([])
@@ -125,6 +124,7 @@ export default function AdminDashboard() {
     id: "",
     title: "",
     location: "",
+    cityObj: null,
     date: "",
     time: "",
     duration: "",
@@ -259,7 +259,8 @@ export default function AdminDashboard() {
         { name: "Gold", description: "VIP seating with exclusive amenities", price: 0, available: 0, tags: [] }
       ], 
       category: "concert", 
-      image: "" 
+      image: "",
+      cityObj: null
     })
     setEditEvent(null)
     setModalOpen(true)
@@ -269,6 +270,7 @@ export default function AdminDashboard() {
       id: event._id,
       title: event.title,
       location: event.location,
+      cityObj: event.city || null,
       date: event.date,
       time: event.time || "",
       duration: event.duration || "",
@@ -304,6 +306,7 @@ export default function AdminDashboard() {
     if (
       !form.title.trim() ||
       !form.location.trim() ||
+      !form.cityObj ||
       !form.date.trim() ||
       !form.time.trim() ||
       !form.duration.toString().trim() ||
@@ -326,6 +329,16 @@ export default function AdminDashboard() {
     const { id, description, ...rest } = form;
     const eventData = {
       ...rest,
+      location: form.location,
+      city: form.cityObj
+        ? {
+            name: form.cityObj.name,
+            stateCode: form.cityObj.stateCode,
+            countryCode: form.cityObj.countryCode,
+            latitude: form.cityObj.latitude,
+            longitude: form.cityObj.longitude,
+          }
+        : undefined,
       ageLimit: Number(form.ageLimit),
       duration: Number(form.duration),
       tickets: form.tickets.map(t => ({
@@ -335,6 +348,8 @@ export default function AdminDashboard() {
       })),
       revenue: `₹${calculateRevenue(form.tickets).toLocaleString()}`
     };
+    // Remove any cityObj field from eventData
+    delete eventData.cityObj;
     try {
       if (editEvent) {
         // PATCH
@@ -721,59 +736,26 @@ export default function AdminDashboard() {
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Events</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalEvents}</p>
-                  </div>
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+            <Card className="rounded-xl shadow-md border border-gray-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90 transition hover:shadow-lg">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Events</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.totalEvents}</p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                  <CalendarIcon className="w-7 h-7 text-blue-600 dark:text-blue-400" />
                 </div>
               </CardContent>
             </Card>
-
-            <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Tickets</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">1,247</p>
-                  </div>
-                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                    <Ticket className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
+            <Card className="rounded-xl shadow-md border border-gray-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/90 transition hover:shadow-lg">
+              <CardContent className="p-6 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Tickets</p>
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">1,247</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalRevenue}</p>
-                  </div>
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
-                    <DollarSign className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-0 shadow-lg">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Rating</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.avgRating}</p>
-                  </div>
-                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                    <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                  </div>
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                  <Ticket className="w-7 h-7 text-green-600 dark:text-green-400" />
                 </div>
               </CardContent>
             </Card>
@@ -987,9 +969,23 @@ export default function AdminDashboard() {
                         <Input id="title" name="title" value={form.title} onChange={handleFormChange} required />
                       </div>
                       
-                      <div>
-                        <Label htmlFor="location">Location *</Label>
-                        <OlaLocationAutocomplete value={form.location} onChange={val => setForm(prev => ({ ...prev, location: val }))} placeholder="Search location..." />
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="location">Location *</Label>
+                          <OlaLocationAutocomplete
+                            value={form.location}
+                            onChange={val => setForm(prev => ({ ...prev, location: val }))}
+                            placeholder="Search location..."
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="city">City *</Label>
+                          <IndianCityAutocomplete
+                            value={typeof form.cityObj === 'object' && form.cityObj !== null ? form.cityObj : null}
+                            onChange={city => setForm(prev => ({ ...prev, cityObj: city }))}
+                            placeholder="Search Indian city..."
+                          />
+                        </div>
                       </div>
                       
                       <div>

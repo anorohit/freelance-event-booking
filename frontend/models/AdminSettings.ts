@@ -3,8 +3,10 @@ import mongoose, { Schema, Document } from 'mongoose'
 export interface PopularCity extends Document {
   id: string
   name: string
-  country: string
-  coordinates?: { lat: number; lng: number }
+  stateCode: string
+  countryCode: string
+  latitude?: string
+  longitude?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -13,11 +15,10 @@ export interface PopularCity extends Document {
 const PopularCitySchema = new Schema<PopularCity>({
   id: { type: String, required: true },
   name: { type: String, required: true },
-  country: { type: String, required: true },
-  coordinates: {
-    lat: { type: Number },
-    lng: { type: Number }
-  }
+  stateCode: { type: String, required: true },
+  countryCode: { type: String, required: true },
+  latitude: { type: String },
+  longitude: { type: String }
 }, { timestamps: true });
 
 export const PopularCity = mongoose.models.PopularCity || mongoose.model<PopularCity>('PopularCity', PopularCitySchema);

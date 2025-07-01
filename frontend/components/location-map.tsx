@@ -11,9 +11,10 @@ import {
   Loader2, 
   CheckCircle,
   Globe,
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react"
-import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
+import IndianCityAutocomplete from "@/components/IndianCityAutocomplete"
 
 interface Location {
   id: string
@@ -30,7 +31,7 @@ interface LocationMapProps {
 
 export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [citySelection, setCitySelection] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [popularCities, setPopularCities] = useState<Location[]>([])
@@ -91,35 +92,33 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
     } catch {}
   }
 
-  // New handler for Ola suggestion select
-  async function handleOlaSuggestion(s: { description: string; lat?: number; lng?: number }) {
-    setSearchQuery(s.description)
-    if (s.lat && s.lng) {
-      if (map) {
-        // Center map to Ola suggestion
-        // @ts-ignore
-        map.panTo({ lat: s.lat, lng: s.lng })
-        map.setZoom(14)
-      }
+  // Remove OlaLocationAutocomplete and handler
+  // Add handler for city selection
+  function handleCitySelect(city: { name: string; stateCode: string; countryCode: string; latitude?: string; longitude?: string } | null) {
+    console.log('Selected city:', city)
+    setCitySelection(city)
+    if (city) {
       setSelectedLocation({
-        id: `ola-${Date.now()}`,
-        name: s.description,
-        state: "",
-        country: "India",
-        coordinates: { lat: s.lat, lng: s.lng },
+        id: city.name.toLowerCase().replace(/\s+/g, '-') + '-' + city.stateCode,
+        name: city.name,
+        state: city.stateCode,
+        country: city.countryCode,
+        coordinates: city.latitude && city.longitude ? { lat: parseFloat(city.latitude), lng: parseFloat(city.longitude) } : undefined
       })
+    } else {
+      setSelectedLocation(null)
     }
   }
 
   const confirmLocation = async () => {
-    if (selectedLocation) {
+    if (selectedLocation && citySelection) {
       // Add location to backend
       const newCity = {
-        id: selectedLocation.name.toLowerCase().replace(/\s+/g, '-'),
-        name: selectedLocation.name,
-        state: selectedLocation.state || "",
-        country: selectedLocation.country,
-        coordinates: selectedLocation.coordinates
+        name: citySelection.name,
+        stateCode: citySelection.stateCode,
+        countryCode: citySelection.countryCode,
+        latitude: citySelection.latitude,
+        longitude: citySelection.longitude
       }
       try {
         const res = await fetch('/api/admin/settings/popular-cities', {
@@ -133,13 +132,26 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
         }
       } catch {}
       setSelectedLocation(null)
-      setSearchQuery("")
+      setCitySelection(null)
     }
   }
 
   const clearSelection = () => {
     setSelectedLocation(null)
-    setSearchQuery("")
+    setCitySelection(null)
+  }
+
+  // Handler to delete a city by id
+  const handleDeleteCity = async (cityId: string) => {
+    try {
+      const res = await fetch(`/api/admin/settings/popular-cities?id=${encodeURIComponent(cityId)}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (data.success) {
+        setPopularCities(prev => prev.filter(c => c.id !== cityId))
+      }
+    } catch {}
   }
 
   return (
@@ -159,11 +171,10 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
 
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <OlaLocationAutocomplete
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onSelectSuggestion={handleOlaSuggestion}
-          placeholder="Search for cities, landmarks, or addresses..."
+        <IndianCityAutocomplete
+          value={citySelection}
+          onChange={handleCitySelect}
+          placeholder="Search Indian city..."
           className="w-full"
         />
       </div>
@@ -193,17 +204,26 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
                   <CardContent className="max-h-40 overflow-y-auto p-2">
                     <ul className="space-y-2">
                       {popularCities.map(city => (
-                        <li key={city.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition">
-                          <MapPin className="w-4 h-4 text-blue-400" />
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">{city.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{city.country}</div>
-                            {city.coordinates && (
-                              <div className="text-[10px] text-gray-400 dark:text-gray-500">
-                                {city.coordinates.lat.toFixed(4)}, {city.coordinates.lng.toFixed(4)}
-                              </div>
-                            )}
+                        <li key={city.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition justify-between border border-gray-100 dark:border-slate-700">
+                          <div className="flex items-center gap-3">
+                            <MapPin className="w-4 h-4 text-blue-400" />
+                            <div>
+                              <div className="font-medium text-gray-900 dark:text-white">{city.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{city.state}, {city.country}</div>
+                              {city.coordinates && (
+                                <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                                  {city.coordinates.lat.toFixed(4)}, {city.coordinates.lng.toFixed(4)}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          <button
+                            className="ml-2 p-2 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+                            title="Remove city"
+                            onClick={() => handleDeleteCity(city.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -261,7 +281,7 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
                     Find Your Location
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Use the search bar above to find cities, landmarks, or addresses. Click on any result to select it.
+                    Use the search bar above to find Indian cities. Click on any result to select it.
                   </p>
                 </div>
               </div>

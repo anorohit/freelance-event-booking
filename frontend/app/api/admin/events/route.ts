@@ -11,6 +11,10 @@ export const GET = withDB(async (request: NextRequest) => {
 // POST /api/admin/events - Create a new event (no Zod validation)
 export const POST = withDB(async (request: NextRequest) => {
   const body = await request.json();
+  // Validate city object
+  if (!body.city || !body.city.name || !body.city.stateCode || !body.city.countryCode) {
+    return NextResponse.json({ success: false, error: 'Missing required city fields' }, { status: 400 });
+  }
   try {
     const event = await Event.create(body);
     return NextResponse.json({ success: true, data: event });

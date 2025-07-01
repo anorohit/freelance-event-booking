@@ -11,11 +11,23 @@ export const GET = withDB(async () => {
 // POST: Add a new popular city
 export const POST = withDB(async (request: NextRequest) => {
   const city = await request.json();
-  const exists = await PopularCity.findOne({ id: city.id });
+  // Validate required fields
+  if (!city.name || !city.stateCode || !city.countryCode) {
+    return NextResponse.json({ success: false, message: 'Missing required fields: name, stateCode, countryCode' }, { status: 400 });
+  }
+  const id = `${city.name.toLowerCase().replace(/\s+/g, '-')}-${city.stateCode}`;
+  const exists = await PopularCity.findOne({ id });
   if (exists) {
     return NextResponse.json({ success: false, message: 'City already exists' }, { status: 400 });
   }
-  const newCity = await PopularCity.create(city);
+  const newCity = await PopularCity.create({
+    id,
+    name: city.name,
+    stateCode: city.stateCode,
+    countryCode: city.countryCode,
+    latitude: city.latitude,
+    longitude: city.longitude
+  });
   return NextResponse.json({ success: true, data: newCity });
 });
 
