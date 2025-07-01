@@ -16,6 +16,7 @@ import {
   Globe,
   Plus
 } from "lucide-react"
+import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
 
 interface Location {
   id: string
@@ -32,13 +33,10 @@ interface LocationMapProps {
 
 export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
-  const [searchBox, setSearchBox] = useState<google.maps.places.SearchBox | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<google.maps.places.PlaceResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const mapRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const initMap = async () => {
@@ -69,27 +67,6 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
           })
 
           setMap(mapInstance)
-
-          // Initialize SearchBox
-          if (searchInputRef.current) {
-            const searchBoxInstance = new google.maps.places.SearchBox(searchInputRef.current)
-            setSearchBox(searchBoxInstance)
-
-            // Listen for search results
-            searchBoxInstance.addListener("places_changed", () => {
-              const places = searchBoxInstance.getPlaces()
-              if (places && places.length > 0) {
-                setSearchResults(places)
-                
-                // Pan to first result
-                const place = places[0]
-                if (place.geometry && place.geometry.location) {
-                  mapInstance.panTo(place.geometry.location)
-                  mapInstance.setZoom(12)
-                }
-              }
-            })
-          }
         }
       } catch (error) {
         console.error("Error loading Google Maps:", error)
@@ -101,36 +78,23 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
     initMap()
   }, [])
 
-  const handleSearch = () => {
-    if (searchBox && searchQuery.trim()) {
-      searchBox.setBounds(map?.getBounds() || new google.maps.LatLngBounds())
-    }
-  }
-
-  const handleLocationSelect = (place: google.maps.places.PlaceResult) => {
-    if (place.geometry && place.geometry.location) {
-      const location: Location = {
-        id: place.place_id || `location-${Date.now()}`,
-        name: place.name || "Unknown Location",
-        state: place.address_components?.find(comp => 
-          comp.types.includes("administrative_area_level_1")
-        )?.long_name || "",
-        country: place.address_components?.find(comp => 
-          comp.types.includes("country")
-        )?.long_name || "India",
-        coordinates: {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
-        }
-      }
-      
-      setSelectedLocation(location)
-      
-      // Pan map to selected location
+  // New handler for Ola suggestion select
+  async function handleOlaSuggestion(s: { description: string; lat?: number; lng?: number }) {
+    setSearchQuery(s.description)
+    if (s.lat && s.lng) {
       if (map) {
-        map.panTo(place.geometry.location)
+        // Center map to Ola suggestion
+        // @ts-ignore
+        map.panTo({ lat: s.lat, lng: s.lng })
         map.setZoom(14)
       }
+      setSelectedLocation({
+        id: `ola-${Date.now()}`,
+        name: s.description,
+        state: "",
+        country: "India",
+        coordinates: { lat: s.lat, lng: s.lng },
+      })
     }
   }
 
@@ -142,7 +106,6 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
 
   const clearSelection = () => {
     setSelectedLocation(null)
-    setSearchResults([])
     setSearchQuery("")
   }
 
@@ -163,29 +126,13 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
 
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <Input
-            ref={searchInputRef}
-            placeholder="Search for cities, landmarks, or addresses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-            className="pl-10 pr-20 h-12 text-base"
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={!searchQuery.trim() || isLoading}
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 px-3"
-            size="sm"
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              "Search"
-            )}
-          </Button>
-        </div>
+        <OlaLocationAutocomplete
+          value={searchQuery}
+          onChange={setSearchQuery}
+          onSelectSuggestion={handleOlaSuggestion}
+          placeholder="Search for cities, landmarks, or addresses..."
+          className="w-full"
+        />
       </div>
 
       {/* Main Content */}
@@ -206,39 +153,6 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
 
         {/* Sidebar */}
         <div className="w-full xl:w-80 border-t xl:border-t-0 xl:border-l border-gray-200 dark:border-gray-700 flex flex-col">
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                <Search className="w-4 h-4 mr-2" />
-                Search Results ({searchResults.length})
-              </h3>
-              <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
-                {searchResults.map((place, index) => (
-                  <Card
-                    key={place.place_id || index}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => handleLocationSelect(place)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start space-x-3">
-                        <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 dark:text-white truncate">
-                            {place.name}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                            {place.formatted_address}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Selected Location */}
           {selectedLocation && (
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
@@ -273,7 +187,7 @@ export function LocationMap({ onLocationSelect, onClose }: LocationMapProps) {
           )}
 
           {/* Instructions */}
-          {!searchResults.length && !selectedLocation && (
+          {!selectedLocation && (
             <div className="p-4 flex-1">
               <div className="text-center space-y-4">
                 <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">

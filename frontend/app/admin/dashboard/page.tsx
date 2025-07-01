@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,14 +33,13 @@ import {
   Star, 
   Ticket,
   Trash2, 
-  Users, 
-  X 
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { LocationMap } from "@/components/location-map"
+import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
 
 interface Ticket {
   name: string
@@ -75,6 +74,23 @@ interface PopularCity {
   coordinates?: { lat: number; lng: number }
 }
 
+// VisuallyHidden component for accessibility
+function VisuallyHidden({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{
+      border: 0,
+      clip: 'rect(0 0 0 0)',
+      height: '1px',
+      margin: '-1px',
+      overflow: 'hidden',
+      padding: 0,
+      position: 'absolute',
+      width: '1px',
+      whiteSpace: 'nowrap',
+    }}>{children}</span>
+  );
+}
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
   const [sectionVisibility, setSectionVisibility] = useState({
@@ -94,68 +110,26 @@ export default function AdminDashboard() {
     avgRating: 4.6,
   }
 
-  const [events, setEvents] = useState([
-    {
-      id: "1",
-      title: "Coldplay Music of the Spheres World Tour",
-      location: "DY Patil Stadium, Mumbai",
-      date: "Jan 19, 2024",
-      time: "7:00 PM",
-      duration: "3 hours",
-      ageLimit: "All ages",
-      status: "active",
-      revenue: "₹1,12,500,000",
-      description: "Experience the magic of Coldplay live in concert! Join thousands of fans for an unforgettable night of music, lights, and pure energy. This spectacular show features songs from their latest album 'Music of the Spheres' along with all-time classics.",
-      about: "Experience the magic of Coldplay live in concert! Join thousands of fans for an unforgettable night of music, lights, and pure energy. This spectacular show features songs from their latest album 'Music of the Spheres' along with all-time classics.",
-      tickets: [
-        { name: "Bronze", description: "General seating area", price: 1500, available: 10000, tags: ["General admission", "Standard entry"] },
-        { name: "Silver", description: "Premium seating with better view", price: 2500, available: 5000, tags: ["Premium seating", "Better view"] },
-        { name: "Gold", description: "VIP seating with exclusive amenities", price: 4500, available: 2000, tags: ["VIP access", "Exclusive amenities"] }
-      ],
-      category: "concert",
-      image: "/placeholder.svg?height=300&width=400"
-    },
-    {
-      id: "2",
-      title: "Stand-up Comedy Night with Zakir Khan",
-      location: "NCPA, Mumbai",
-      date: "Jan 25, 2024",
-      time: "8:00 PM",
-      duration: "2 hours",
-      ageLimit: "18+",
-      status: "active",
-      revenue: "₹14,40,000",
-      description: "Laugh out loud with Zakir Khan.",
-      about: "Laugh out loud with Zakir Khan.",
-      tickets: [
-        { name: "Bronze", description: "General seating area", price: 800, available: 2000, tags: ["General admission"] },
-        { name: "Silver", description: "Premium seating with better view", price: 1200, available: 1000, tags: ["Premium seating"] },
-        { name: "Gold", description: "VIP seating with exclusive amenities", price: 2000, available: 500, tags: ["VIP access"] }
-      ],
-      category: "comedy",
-      image: "/placeholder.svg?height=300&width=400"
-    },
-    {
-      id: "3",
-      title: "Mumbai Food Festival 2024",
-      location: "Mahalaxmi Racecourse",
-      date: "Feb 2-4, 2024",
-      time: "11:00 AM",
-      duration: "8 hours",
-      ageLimit: "All ages",
-      status: "upcoming",
-      revenue: "₹25,50,000",
-      description: "Taste the best food in Mumbai!",
-      about: "Taste the best food in Mumbai!",
-      tickets: [
-        { name: "Bronze", description: "General seating area", price: 300, available: 10000, tags: ["General admission", "Food access"] },
-        { name: "Silver", description: "Premium seating with better view", price: 500, available: 5000, tags: ["Premium seating", "Priority access"] },
-        { name: "Gold", description: "VIP seating with exclusive amenities", price: 1000, available: 2000, tags: ["VIP access", "Exclusive dining"] }
-      ],
-      category: "food",
-      image: "/placeholder.svg?height=300&width=400"
+  const [events, setEvents] = useState<any[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+
+  // Fetch events from API
+  useEffect(() => {
+    async function fetchEvents() {
+      setLoadingEvents(true)
+      try {
+        const res = await fetch("/api/admin/events")
+        const data = await res.json()
+        if (data.success) setEvents(data.data)
+        else toast({ title: "Failed to fetch events" })
+      } catch (e) {
+        toast({ title: "Error fetching events" })
+      }
+      setLoadingEvents(false)
     }
-  ])
+    fetchEvents()
+  }, [])
+
   const [modalOpen, setModalOpen] = useState(false)
   const [editEvent, setEditEvent] = useState<typeof events[number] | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -248,7 +222,7 @@ export default function AdminDashboard() {
   }
   const openEditModal = (event: typeof events[number]) => {
     setForm({
-      id: event.id,
+      id: event._id,
       title: event.title,
       location: event.location,
       date: event.date,
@@ -278,31 +252,66 @@ export default function AdminDashboard() {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title || !form.location || !form.date || !form.time) {
       toast({ title: "Please fill all required fields." })
       return
     }
-    
     const eventData = {
       ...form,
       revenue: `₹${calculateRevenue(form.tickets).toLocaleString()}`
     }
-
-    if (editEvent) {
-      setEvents((prev) => prev.map((ev) => (ev.id === form.id ? eventData : ev)))
-      toast({ title: "Event updated successfully!" })
-    } else {
-      setEvents((prev) => [...prev, { ...eventData, id: Date.now().toString() }])
-      toast({ title: "Event added successfully!" })
+    try {
+      if (editEvent) {
+        // PATCH
+        const res = await fetch(`/api/admin/events/${editEvent._id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(eventData)
+        })
+        const data = await res.json()
+        if (data.success) {
+          setEvents((prev) => prev.map((ev) => (ev._id === editEvent._id ? data.data : ev)))
+          toast({ title: "Event updated successfully!" })
+        } else {
+          toast({ title: "Failed to update event" })
+        }
+      } else {
+        // POST
+        const res = await fetch("/api/admin/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(eventData)
+        })
+        const data = await res.json()
+        if (data.success) {
+          setEvents((prev) => [data.data, ...prev])
+          toast({ title: "Event added successfully!" })
+        } else {
+          toast({ title: "Failed to add event" })
+        }
+      }
+    } catch (e) {
+      toast({ title: "Error saving event" })
     }
     closeModal()
   }
   const confirmDelete = (id: string) => setDeleteId(id)
-  const handleDelete = () => {
-    setEvents((prev) => prev.filter((ev) => ev.id !== deleteId))
+  const handleDelete = async () => {
+    if (!deleteId) return
+    try {
+      const res = await fetch(`/api/admin/events/${deleteId}`, { method: "DELETE" })
+      const data = await res.json()
+      if (data.success) {
+        setEvents((prev) => prev.filter((ev) => ev._id !== deleteId))
+        toast({ title: "Event deleted!" })
+      } else {
+        toast({ title: "Failed to delete event" })
+      }
+    } catch (e) {
+      toast({ title: "Error deleting event" })
+    }
     setDeleteId(null)
-    toast({ title: "Event deleted!" })
   }
   const cancelDelete = () => setDeleteId(null)
 
@@ -342,8 +351,8 @@ export default function AdminDashboard() {
   }
 
   // Calculate total revenue
-  const calculateRevenue = (eventTickets: typeof form.tickets) => {
-    return eventTickets.reduce((total, ticket) => {
+  const calculateRevenue = (eventTickets: any[]) => {
+    return eventTickets.reduce((total: any, ticket: any) => {
       return total + (ticket.available * ticket.price)
     }, 0)
   }
@@ -374,16 +383,16 @@ export default function AdminDashboard() {
   }
 
   // Calculate event statistics
-  const getEventStats = (event: typeof events[number]) => {
-    const totalTickets = event.tickets.reduce((sum, ticket) => sum + ticket.available, 0)
-    const totalRevenue = event.tickets.reduce((sum, ticket) => sum + (ticket.price * ticket.available), 0)
+  const getEventStats = (event: any) => {
+    const totalTickets = event.tickets.reduce((sum: any, ticket: any) => sum + ticket.available, 0)
+    const totalRevenue = event.tickets.reduce((sum: any, ticket: any) => sum + (ticket.price * ticket.available), 0)
     const avgPrice = totalTickets > 0 ? totalRevenue / totalTickets : 0
     
     return {
       totalTickets,
       totalRevenue,
       avgPrice,
-      ticketBreakdown: event.tickets.map(ticket => ({
+      ticketBreakdown: event.tickets.map((ticket: any) => ({
         name: ticket.name,
         available: ticket.available,
         price: ticket.price,
@@ -714,7 +723,7 @@ export default function AdminDashboard() {
                   <CardContent>
                     <div className="space-y-4">
                       {events.map((event) => (
-                        <div key={event.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800 rounded-lg">
+                        <div key={event._id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800 rounded-lg">
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900 dark:text-white">{event.title}</h4>
                             <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center mt-1">
@@ -829,7 +838,7 @@ export default function AdminDashboard() {
                               (selectedCategory === "all" || event.category === selectedCategory)
                             )
                             .map((event) => (
-                              <tr key={event.id} className="border-b border-gray-100 dark:border-slate-800">
+                              <tr key={event._id} className="border-b border-gray-100 dark:border-slate-800">
                                 <td className="py-3 px-4">
                                   <div>
                                     <p className="font-medium text-gray-900 dark:text-white">{event.title}</p>
@@ -864,7 +873,7 @@ export default function AdminDashboard() {
                                     <Button size="sm" variant="outline" onClick={() => openEditModal(event)}>
                                       <Edit className="w-4 h-4" />
                                     </Button>
-                                    <Button size="sm" variant="outline" className="text-red-600 dark:text-red-400" onClick={() => confirmDelete(event.id)}>
+                                    <Button size="sm" variant="outline" className="text-red-600 dark:text-red-400" onClick={() => confirmDelete(event._id)}>
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </div>
@@ -896,7 +905,11 @@ export default function AdminDashboard() {
                       
                       <div>
                         <Label htmlFor="location">Location *</Label>
-                        <Input id="location" name="location" value={form.location} onChange={handleFormChange} required />
+                        <OlaLocationAutocomplete
+                          value={form.location}
+                          onChange={val => setForm(prev => ({ ...prev, location: val }))}
+                          placeholder="Search location..."
+                        />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
@@ -1000,7 +1013,7 @@ export default function AdminDashboard() {
                     </div>
                     
                     <div className="space-y-4">
-                      {form.tickets.map((ticket, index) => (
+                      {form.tickets.map((ticket: any, index: any) => (
                         <div key={index} className="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                           <div className="flex items-center justify-between mb-4">
                             <h4 className="font-medium text-gray-900 dark:text-white">{ticket.name} Ticket</h4>
@@ -1037,7 +1050,7 @@ export default function AdminDashboard() {
                               <Label>Tags</Label>
                               <div className="space-y-2">
                                 <div className="flex gap-2 flex-wrap">
-                                  {ticket.tags.map((tag, tagIndex) => (
+                                  {ticket.tags.map((tag: any, tagIndex: any) => (
                                     <Badge 
                                       key={tagIndex} 
                                       variant="secondary" 
@@ -1168,7 +1181,7 @@ export default function AdminDashboard() {
                         <div className="flex flex-col gap-3">
                           {(() => {
                             const stats = getEventStats(selectedEvent)
-                            return stats.ticketBreakdown.map((ticket, index) => (
+                            return stats.ticketBreakdown.map((ticket: any, index: any) => (
                               <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 rounded-lg gap-2">
                                 <div className="flex items-center space-x-3">
                                   <div className={`w-3 h-3 rounded-full ${
@@ -1426,6 +1439,7 @@ export default function AdminDashboard() {
           {/* Map Search Modal */}
           <Dialog open={mapModalOpen} onOpenChange={closeMapModal}>
             <DialogContent className="max-w-7xl w-[95vw] h-[90vh] sm:h-[85vh] p-0 overflow-hidden">
+              <DialogTitle className="sr-only m-0 p-0">Map Search</DialogTitle>
               <LocationMap 
                 onLocationSelect={(location) => {
                   addCityFromMap(location.name, location.state, location.coordinates?.lat || 0, location.coordinates?.lng || 0)
