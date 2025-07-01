@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withDB } from '@/lib/withDB';
-import { Event, eventSchemaZod } from '@/models/Event';
+import { Event } from '@/models/Event';
 
 // PATCH /api/admin/events/[id] - Update an event
 export const PATCH = withDB(async (request: NextRequest, { params }: { params: { id: string } }) => {
   const { id } = params;
   const body = await request.json();
-  // Validate with Zod
-  const parse = eventSchemaZod.safeParse(body);
-  if (!parse.success) {
-    return NextResponse.json({ success: false, error: parse.error.errors }, { status: 400 });
-  }
-  const event = await Event.findByIdAndUpdate(id, parse.data, { new: true, runValidators: true });
+  const event = await Event.findByIdAndUpdate(id, body, { new: true, runValidators: true });
   if (!event) {
     return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
   }

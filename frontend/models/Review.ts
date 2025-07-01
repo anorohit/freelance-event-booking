@@ -1,21 +1,4 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { z } from 'zod'
-
-export const reviewSchemaZod = z.object({
-  userId: z.string(),
-  eventId: z.string(),
-  bookingId: z.string(),
-  rating: z.number().min(1).max(5),
-  eventAspects: z.object({
-    venue: z.number().min(1).max(5),
-    organization: z.number().min(1).max(5),
-    value: z.number().min(1).max(5),
-    experience: z.number().min(1).max(5)
-  }).optional(),
-  isVerified: z.boolean().default(false)
-})
-
-export type ReviewInput = z.infer<typeof reviewSchemaZod>
 
 export interface IReview extends Document {
   userId: mongoose.Types.ObjectId

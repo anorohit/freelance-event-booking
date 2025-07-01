@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +14,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { 
   Activity, 
   ArrowLeft,
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   DollarSign, 
   Edit,
@@ -40,6 +40,8 @@ import { toast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
 import { LocationMap } from "@/components/location-map"
 import OlaLocationAutocomplete from "@/components/OlaLocationAutocomplete"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 
 interface Ticket {
   name: string
@@ -74,22 +76,7 @@ interface PopularCity {
   coordinates?: { lat: number; lng: number }
 }
 
-// VisuallyHidden component for accessibility
-function VisuallyHidden({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      border: 0,
-      clip: 'rect(0 0 0 0)',
-      height: '1px',
-      margin: '-1px',
-      overflow: 'hidden',
-      padding: 0,
-      position: 'absolute',
-      width: '1px',
-      whiteSpace: 'nowrap',
-    }}>{children}</span>
-  );
-}
+
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
@@ -195,6 +182,13 @@ export default function AdminDashboard() {
 
   const router = useRouter()
 
+  // Add state for date picker open/close
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+  // Add after other useState hooks
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+
   // Handlers
   const openAddModal = () => {
     setForm({ 
@@ -247,20 +241,47 @@ export default function AdminDashboard() {
   const closeModal = () => {
     setModalOpen(false)
     setEditEvent(null)
+    setImagePreview(null)
   }
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
   const handleSave = async () => {
-    if (!form.title || !form.location || !form.date || !form.time) {
-      toast({ title: "Please fill all required fields." })
-      return
+    if (
+      !form.title.trim() ||
+      !form.location.trim() ||
+      !form.date.trim() ||
+      !form.time.trim() ||
+      !form.duration.toString().trim() ||
+      !form.ageLimit.toString().trim() ||
+      !form.status.trim() ||
+      !form.category.trim() ||
+      !form.image.trim() ||
+      !form.about.trim() ||
+      form.tickets.some(
+        t =>
+          !t.name.trim() ||
+          !t.description.trim() ||
+          String(t.price).trim() === "" ||
+          String(t.available).trim() === ""
+      )
+    ) {
+      toast({ title: "Please fill all required fields." });
+      return;
     }
+    const { id, description, ...rest } = form;
     const eventData = {
-      ...form,
+      ...rest,
+      ageLimit: Number(form.ageLimit),
+      duration: Number(form.duration),
+      tickets: form.tickets.map(t => ({
+        ...t,
+        price: Number(t.price),
+        available: Number(t.available)
+      })),
       revenue: `₹${calculateRevenue(form.tickets).toLocaleString()}`
-    }
+    };
     try {
       if (editEvent) {
         // PATCH
@@ -333,22 +354,38 @@ export default function AdminDashboard() {
   const updateTicket = (index: number, field: string, value: string | number) => {
     setForm(prev => ({
       ...prev,
-      tickets: prev.tickets.map((ticket, i) => 
+      tickets: prev.tickets.map((ticket, i) =>
         i === index ? { ...ticket, [field]: value } : ticket
       )
     }))
   }
 
   // Image upload handler
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // For demo purposes, we'll create a local URL
-      // In production, you'd upload to a server and get back a URL
-      const imageUrl = URL.createObjectURL(file)
-      setForm(prev => ({ ...prev, image: imageUrl }))
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(URL.createObjectURL(file)); // Show preview immediately
+    setImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setForm(prev => ({ ...prev, image: data.url }));
+      } else {
+        toast({ title: "Image upload failed" });
+      }
+    } catch (err) {
+      toast({ title: "Image upload failed" });
     }
-  }
+    setImageUploading(false);
+    // Reset input so same file can be selected again
+    e.target.value = "";
+  };
 
   // Calculate total revenue
   const calculateRevenue = (eventTickets: any[]) => {
@@ -646,7 +683,7 @@ export default function AdminDashboard() {
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalEvents}</p>
                   </div>
                   <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    <CalendarIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                 </div>
               </CardContent>
@@ -905,38 +942,83 @@ export default function AdminDashboard() {
                       
                       <div>
                         <Label htmlFor="location">Location *</Label>
-                        <OlaLocationAutocomplete
-                          value={form.location}
-                          onChange={val => setForm(prev => ({ ...prev, location: val }))}
-                          placeholder="Search location..."
+                        <OlaLocationAutocomplete value={form.location} onChange={val => setForm(prev => ({ ...prev, location: val }))} placeholder="Search location..." />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="date">Date *</Label>
+                        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Input
+                              id="date"
+                              name="date"
+                              value={form.date}
+                              placeholder="Select date"
+                              readOnly
+                              required
+                            />
+                          </PopoverTrigger>
+                          <PopoverContent align="start" className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={form.date ? new Date(form.date) : undefined}
+                              onSelect={(date: Date | undefined) => {
+                                if (date) {
+                                  setForm(prev => ({ ...prev, date: date.toISOString().slice(0, 10) }));
+                                  setDatePickerOpen(false);
+                                }
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="time">Time (24h) *</Label>
+                        <Input
+                          id="time"
+                          name="time"
+                          type="text"
+                          placeholder="HH:MM"
+                          value={form.time}
+                          onChange={e => setForm(prev => ({ ...prev, time: e.target.value }))}
+                          required
+                          className="w-32"
                         />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="date">Date *</Label>
-                          <Input id="date" name="date" value={form.date} onChange={handleFormChange} required />
-                        </div>
-                        <div>
-                          <Label htmlFor="time">Time *</Label>
-                          <Input id="time" name="time" value={form.time} onChange={handleFormChange} required />
-                        </div>
+                      <div>
+                        <Label htmlFor="duration">Duration (hours) *</Label>
+                        <Input
+                          id="duration"
+                          name="duration"
+                          type="text"
+                          placeholder="e.g., 2"
+                          value={form.duration}
+                          onChange={e => setForm(prev => ({ ...prev, duration: e.target.value }))}
+                          required
+                          className="w-32"
+                        />
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="duration">Duration</Label>
-                          <Input id="duration" name="duration" value={form.duration} onChange={handleFormChange} placeholder="e.g., 3 hours" />
-                        </div>
-                        <div>
-                          <Label htmlFor="ageLimit">Age Limit</Label>
-                          <Input id="ageLimit" name="ageLimit" value={form.ageLimit} onChange={handleFormChange} placeholder="e.g., All ages" />
-                        </div>
+                      <div>
+                        <Label htmlFor="ageLimit">Age Limit *</Label>
+                        <Input
+                          id="ageLimit"
+                          name="ageLimit"
+                          type="text"
+                          placeholder="e.g., 18"
+                          value={form.ageLimit}
+                          onChange={e => setForm(prev => ({ ...prev, ageLimit: e.target.value }))}
+                          required
+                          className="w-32"
+                        />
                       </div>
                       
                       <div>
                         <Label htmlFor="status">Status</Label>
-                        <Select value={form.status} onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}>
+                        <Select value={form.status} onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))} required>
                           <SelectTrigger>
                             <SelectValue placeholder="Status" />
                           </SelectTrigger>
@@ -950,58 +1032,68 @@ export default function AdminDashboard() {
 
                       {/* Image Upload */}
                       <div>
-                        <Label htmlFor="image">Event Image</Label>
-                        <div className="mt-2">
-                          {form.image ? (
-                            <div className="relative">
-                              <img 
-                                src={form.image} 
-                                alt="Event preview" 
-                                className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-slate-700"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90"
-                                onClick={() => setForm(prev => ({ ...prev, image: "" }))}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                        <Label htmlFor="event-image" className="block mb-2 font-medium">Event Image</Label>
+                        {(imagePreview || form.image) ? (
+                          <div className="relative">
+                            <img
+                              src={imagePreview || form.image}
+                              alt="Event preview"
+                              className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-slate-700"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/90"
+                              onClick={() => {
+                                setForm(prev => ({ ...prev, image: "" }));
+                                setImagePreview(null);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition"
+                            onClick={() => document.getElementById('event-image')?.click()}
+                          >
+                            <input
+                              type="file"
+                              id="event-image"
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                              disabled={imageUploading}
+                            />
+                            <div className="space-y-2">
+                              <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
+                                <Plus className="w-6 h-6 text-gray-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">Upload Event Image</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG up to 10MB</p>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg p-6 text-center">
-                              <input
-                                type="file"
-                                id="image"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                              />
-                              <label htmlFor="image" className="cursor-pointer">
-                                <div className="space-y-2">
-                                  <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
-                                    <Plus className="w-6 h-6 text-gray-400" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900 dark:text-white">Upload Event Image</p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPG up to 10MB</p>
-                                  </div>
-                                </div>
-                              </label>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* Description & About */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">Description & About</h3>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">About This Event *</h3>
                       
                       <div>
-                        <Label htmlFor="about">About This Event</Label>
-                        <Textarea id="about" name="about" value={form.about} onChange={handleFormChange} rows={4} />
+                        <Textarea
+                          id="about"
+                          name="about"
+                          value={form.about}
+                          onChange={handleFormChange}
+                          rows={4}
+                          required
+                          placeholder="Tell more about the event"
+                        />
                       </div>
                     </div>
                   </div>
@@ -1030,19 +1122,19 @@ export default function AdminDashboard() {
                             </div>
                             <div>
                               <Label>Price (₹)</Label>
-                              <Input 
-                                type="number"
-                                value={ticket.price} 
-                                onChange={(e) => updateTicket(index, 'price', Number(e.target.value))}
+                              <Input
+                                type="text"
+                                value={ticket.price}
+                                onChange={(e) => updateTicket(index, 'price', e.target.value)}
                                 placeholder="0"
                               />
                             </div>
                             <div>
                               <Label>Available</Label>
-                              <Input 
-                                type="number"
-                                value={ticket.available} 
-                                onChange={(e) => updateTicket(index, 'available', Number(e.target.value))}
+                              <Input
+                                type="text"
+                                value={ticket.available}
+                                onChange={(e) => updateTicket(index, 'available', e.target.value)}
                                 placeholder="0"
                               />
                             </div>

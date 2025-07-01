@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { z } from 'zod'
 
 // Define enums
 export const EVENT_CATEGORIES = [
@@ -8,35 +7,9 @@ export const EVENT_CATEGORIES = [
 
 export type EventCategory = typeof EVENT_CATEGORIES[number]
 
-// Zod schema for validation
-export const eventSchemaZod = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters').max(100),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
-  about: z.string().optional(),
-  location: z.string().min(3, 'Location must be at least 3 characters'),
-  date: z.string(),
-  time: z.string(),
-  duration: z.string(),
-  ageLimit: z.string(),
-  category: z.enum(EVENT_CATEGORIES),
-  image: z.string().url('Invalid image URL'),
-  status: z.enum(['active', 'upcoming', 'completed', 'cancelled']).default('active'),
-  tickets: z.array(z.object({
-    name: z.enum(['Bronze', 'Silver', 'Gold']),
-    description: z.string(),
-    price: z.number().min(0),
-    available: z.number().min(0),
-    tags: z.array(z.string()).default([])
-  })).default([]),
-  isHot: z.boolean().default(false),
-  isPopular: z.boolean().default(false),
-  attendees: z.number().default(0)
-})
-
 export interface IEvent extends Document {
   title: string
-  description: string
-  about?: string
+  about: string
   location: string
   category: EventCategory
   date: string
@@ -69,12 +42,9 @@ const eventSchema = new Schema<IEvent>({
     required: true,
     trim: true
   },
-  description: {
+  about: {
     type: String,
     required: true
-  },
-  about: {
-    type: String
   },
   location: {
     type: String,

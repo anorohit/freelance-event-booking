@@ -1,20 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-
-// Zod schema for validation
-export const userSchemaZod = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(50),
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  zipCode: z.string().optional(),
-  role: z.enum(['user', 'admin']).default('user')
-})
-
-export type UserInput = z.infer<typeof userSchemaZod>
 
 export interface IUser extends Document {
   name: string

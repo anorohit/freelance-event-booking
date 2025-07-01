@@ -1,16 +1,4 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { z } from 'zod'
-
-export const ticketTypeSchemaZod = z.object({
-  eventId: z.string(),
-  name: z.enum(['Bronze', 'Silver', 'Gold']),
-  description: z.string(),
-  price: z.number().min(0, 'Price must be non-negative'),
-  available: z.number().min(0, 'Quantity must be non-negative'),
-  tags: z.array(z.string()).default([])
-})
-
-export type TicketTypeInput = z.infer<typeof ticketTypeSchemaZod>
 
 export interface ITicketType extends Document {
   eventId: mongoose.Types.ObjectId

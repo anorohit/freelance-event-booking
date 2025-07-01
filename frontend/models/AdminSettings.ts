@@ -1,14 +1,4 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { z } from 'zod'
-
-export const adminSettingsSchemaZod = z.object({
-  showLocationEvents: z.boolean().default(true),
-  showHotEvents: z.boolean().default(true),
-  showPopularEvents: z.boolean().default(true),
-  maintenanceMode: z.boolean().default(false)
-})
-
-export type AdminSettingsInput = z.infer<typeof adminSettingsSchemaZod>
 
 export interface IAdminSettings extends Document {
   showLocationEvents: boolean
